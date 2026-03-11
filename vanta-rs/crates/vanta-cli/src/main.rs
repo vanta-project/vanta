@@ -1,10 +1,14 @@
-use anyhow::{Result, anyhow};
-use clap::{Parser, Subcommand};
+use anyhow::{Result, anyhow, bail};
+use clap::{Parser, Subcommand, ValueEnum};
 use std::fs;
 use vanta_crypto::{IdentityKeypair, transcript_hash_for_messages, verify_signature};
 use vanta_daemon::{Daemon, DaemonConfig};
 use vanta_registry::{SignedRegistryManifest, compile_manifest};
-use vanta_wire::{AuditReceipt, BinaryCodec, Frame};
+use vanta_wire::{
+    AuditReceipt, BinaryCodec, Extension, ExtensionCode, ExtensionType, Frame, FrameFlags,
+    FrameType, HeartbeatPayload, HelloPayload, MessageId, OperationId, TransportProfile, Version,
+    WireRole,
+};
 
 #[derive(Parser)]
 #[command(name = "vanta")]
@@ -21,9 +25,13 @@ enum Commands {
         manifest: String,
     },
     InspectFrame {
-        input: String,
+        input: Option<String>,
         #[arg(long)]
         hex: bool,
+        #[arg(long, value_enum)]
+        sample: Option<SampleFrameKind>,
+        #[arg(long)]
+        output: Option<String>,
     },
     VerifyAudit {
         receipt: String,
@@ -36,6 +44,14 @@ enum Commands {
     RunDaemon {
         config: String,
     },
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
+enum SampleFrameKind {
+    Hello,
+    Request,
+    Command,
+    Heartbeat,
 }
 
 #[tokio::main]
@@ -53,15 +69,17 @@ async fn main() -> Result<()> {
             let compiled = compile_manifest(&envelope)?;
             println!("{}", serde_json::to_string_pretty(&compiled)?);
         }
-        Commands::InspectFrame { input, hex } => {
-            let bytes = if hex {
-                hex::decode(fs::read_to_string(input)?.trim())?
-            } else {
-                fs::read(input)?
-            };
-            let frame = Frame::decode(&bytes)?;
-            println!("{frame:#?}");
-        }
+        Commands::InspectFrame {
+            input,
+            hex,
+            sample,
+            output,
+        } => match (input, sample) {
+            (Some(input), None) => inspect_frame(&input, hex)?,
+            (None, Some(sample)) => emit_sample_frame(sample, output.as_deref(), hex)?,
+            (Some(_), Some(_)) => bail!("use either <input> or --sample, not both"),
+            (None, None) => bail!("provide either <input> for decoding or --sample for generation"),
+        },
         Commands::VerifyAudit {
             receipt,
             previous_hash_hex,
@@ -102,4 +120,88 @@ async fn main() -> Result<()> {
         }
     }
     Ok(())
+}
+
+fn inspect_frame(input: &str, hex_input: bool) -> Result<()> {
+    let bytes = if hex_input {
+        hex::decode(fs::read_to_string(input)?.trim())?
+    } else {
+        fs::read(input)?
+    };
+    let frame = Frame::decode(&bytes)?;
+    println!("{frame:#?}");
+    Ok(())
+}
+
+fn emit_sample_frame(
+    sample: SampleFrameKind,
+    output: Option<&str>,
+    hex_output: bool,
+) -> Result<()> {
+    let frame = sample_frame(sample)?;
+    let bytes = frame.encode()?;
+    match output {
+        Some(path) if hex_output => fs::write(path, format!("{}\n", hex::encode(&bytes)))?,
+        Some(path) => fs::write(path, &bytes)?,
+        None => {
+            println!("{}", hex::encode(&bytes));
+        }
+    }
+    eprintln!("generated sample {:?}", sample);
+    eprintln!("{frame:#?}");
+    Ok(())
+}
+
+fn sample_frame(sample: SampleFrameKind) -> Result<Frame> {
+    let mut frame = match sample {
+        SampleFrameKind::Hello => {
+            let payload = HelloPayload {
+                role: WireRole::Initiator,
+                supported_versions: vec![Version { major: 0, minor: 0 }],
+                suite_ids: vec![1],
+                max_frame_size: 4096,
+                transport_profiles: vec![TransportProfile::Tcp, TransportProfile::WebSocket],
+                features: vec!["audit".into(), "resume".into()],
+                ordering_bits: 0b111,
+            }
+            .encode()?;
+            Frame::new(FrameType::Hello, FrameFlags::CTRL, payload)
+        }
+        SampleFrameKind::Request => Frame::new(
+            FrameType::Request,
+            FrameFlags::ACK_REQ,
+            "sample-request".as_bytes().to_vec().into(),
+        ),
+        SampleFrameKind::Command => {
+            let extension = Extension::new(
+                ExtensionType::new(ExtensionCode::OperationId as u8, true)?,
+                OperationId::from([0x22; 16]).as_bytes().to_vec().into(),
+            )?;
+            Frame::new(
+                FrameType::Command,
+                FrameFlags::ACK_REQ,
+                "sample-command".as_bytes().to_vec().into(),
+            )
+            .with_extensions(vec![extension])?
+        }
+        SampleFrameKind::Heartbeat => {
+            let payload = HeartbeatPayload {
+                timestamp_millis: 1_700_000_000_000,
+                ping_id: 7,
+            }
+            .encode()?;
+            Frame::new(FrameType::Heartbeat, FrameFlags::CTRL, payload)
+        }
+    };
+
+    frame.header.major_version = 0;
+    frame.header.minor_version = 0;
+    frame.header.session_id = [0x11; 16];
+    frame.header.stream_id = [0x01, 0, 0, 0, 0, 0, 0, 0];
+    frame.header.message_id = *MessageId::from([0x33; 16]).as_bytes();
+    frame.header.sequence = 1;
+    frame.header.schema_token = 0x4180_0011;
+    frame.header.capability_token = 0x3220_0011;
+    frame.refresh_lengths()?;
+    Ok(frame)
 }

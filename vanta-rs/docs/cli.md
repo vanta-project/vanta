@@ -23,6 +23,7 @@ cargo build -p vanta-cli
 - Create a new Ed25519 identity and print its `PeerID`
 - Compile a JSON registry manifest into canonical schema/capability tokens
 - Decode and pretty-print a binary or hex-encoded Vanta frame
+- Generate canonical sample frames for tests, docs, or local experiments
 - Verify an encoded audit receipt and print the resulting receipt hash
 - Compute the canonical transcript hash used by the handshake code
 - Start the reference daemon from a TOML config file
@@ -145,34 +146,60 @@ Purpose:
 - Reads either a raw binary frame or a text file containing hex bytes
 - Decodes the base header, extension block, payload bytes, and optional AEAD tag
 - Prints the result with Rust `Debug` formatting
+- Can also generate sample `hello`, `request`, `command`, or `heartbeat` frames
 
-Sample command for a hex file:
+Decode an existing hex file:
 
 ```bash
-cargo run -p vanta-cli -- inspect-frame fixtures/request-frame.hex --hex
+cargo run -p vanta-cli -- inspect-frame capture.hex --hex
 ```
 
-Example output:
+Generate a sample request frame as hex on stdout:
+
+```bash
+cargo run -p vanta-cli -- inspect-frame --sample request --hex
+```
+
+Generate a sample command frame into a file:
+
+```bash
+cargo run -p vanta-cli -- inspect-frame --sample command --output examples/request-frame.hex --hex
+```
+
+Example output when generating a sample:
 
 ```text
+56545031000000620000007000121204ec9590781111111111111111111111111111111101000000000000003333333333333333333333333333333300000000000000010000000e418000113220001182102222222222222222222222222222222273616d706c652d636f6d6d616e64
+generated sample Command
 Frame {
     header: BaseHeader {
         major_version: 0,
         minor_version: 0,
-        header_length: 80,
-        frame_length: 109,
-        extension_length: 0,
-        frame_type: Request,
+        header_length: 98,
+        frame_length: 112,
+        extension_length: 18,
+        frame_type: Command,
         flags: ACK_REQ,
         ...
     },
-    extensions: [],
-    payload: b"...",
+    extensions: [
+        Extension { ... }
+    ],
+    payload: b"sample-command",
     aead_tag: None,
 }
 ```
 
-Use `--hex` when the file is textual hex. Omit it for a binary frame captured directly from a socket or test fixture.
+Use `--hex` when:
+
+- decoding a text file that contains hex bytes
+- generating a text file instead of a raw binary file
+
+Rules:
+
+- `inspect-frame <input>` decodes an existing frame
+- `inspect-frame --sample <kind>` generates a new sample frame
+- `--output <path>` is optional during generation; without it, the encoded frame is printed to stdout as hex
 
 ### `verify-audit`
 
@@ -273,6 +300,13 @@ cargo run -p vanta-cli -- compile-registry examples/demo-registry.json
 
 Copy the resulting compiled registry block into your daemon config.
 
+### Generate and inspect a sample frame
+
+```bash
+cargo run -p vanta-cli -- inspect-frame --sample hello --output /tmp/hello.hex --hex
+cargo run -p vanta-cli -- inspect-frame /tmp/hello.hex --hex
+```
+
 ### Investigate a captured frame
 
 ```bash
@@ -295,5 +329,4 @@ cargo run -p vanta-cli -- verify-audit receipt.bin
 
 - `compile-registry` currently expects JSON input, not TOML.
 - `run-daemon` expects a compiled registry embedded in the TOML config rather than a manifest path.
-- `inspect-frame` is a decoder only; it does not yet generate sample frames.
 - `verify-audit` verifies a single receipt at a time rather than an entire chain directory.
