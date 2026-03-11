@@ -1,1 +1,6 @@
 .cursor/hooks/state
+vanta-rs/target
+vanta-rs/**/*.db
+vanta-rs/**/*.db-shm
+vanta-rs/**/*.db-wal
+vanta-rs/.cargo-home

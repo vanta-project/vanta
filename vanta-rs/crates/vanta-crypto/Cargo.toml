@@ -1,0 +1,22 @@
+[package]
+name = "vanta-crypto"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+base64.workspace = true
+bytes.workspace = true
+chacha20poly1305.workspace = true
+ed25519-dalek.workspace = true
+hex.workspace = true
+hkdf.workspace = true
+rand.workspace = true
+rand_core.workspace = true
+serde.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+vanta-wire = { path = "../vanta-wire" }
+x25519-dalek.workspace = true
+
+[dev-dependencies]
+hex.workspace = true

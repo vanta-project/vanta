@@ -47,3 +47,18 @@ xml2rfc --text --html spec/vanta-audit.xml
 - [Rust Implementation](https://github.com/vanta-project/vanta-rs) (WIP)
 - [Go Implementation](https://github.com/vanta-project/vanta-go) (NIP)
 - [TypeScript Implementation](https://github.com/vanta-project/vanta-ts) (NIP)
+
+## Local Rust Reference Workspace
+
+This repository now includes an in-tree canonical Rust reference workspace at [`vanta-rs/`](/Users/benn/Documents/Projects/research/vanta-transfer-protocol/vanta-rs).
+
+- Workspace overview: [`vanta-rs/README.md`](/Users/benn/Documents/Projects/research/vanta-transfer-protocol/vanta-rs/README.md)
+- Canonical wire supplement: [`vanta-rs/docs/v0-wire-supplement.md`](/Users/benn/Documents/Projects/research/vanta-transfer-protocol/vanta-rs/docs/v0-wire-supplement.md)
+- Conformance matrix: [`vanta-rs/docs/conformance-matrix.md`](/Users/benn/Documents/Projects/research/vanta-transfer-protocol/vanta-rs/docs/conformance-matrix.md)
+
+Run the reference implementation tests with:
+
+```bash
+cd vanta-rs
+cargo test
+```
