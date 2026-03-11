@@ -1,5 +1,9 @@
 # Vanta Transport Protocol
 
+Vanta is a high-performance binary protocol for secure, verifiable data exchange across heterogeneous transports.
+
+> This project is in a very early stage of development. The specifications are not yet complete and the implementations are not yet fully available.
+
 ## Specs
 
 ### General Specifications
@@ -24,7 +28,7 @@ python -m venv venv
 source venv/bin/activate
 
 # Install xml2rfc
-pip install -U pip                        
+pip install -U pip
 pip install xml2rfc
 
 # Generate the HTML version of the specifications
