@@ -310,6 +310,14 @@ Purpose:
 - Starts the reference daemon as an endpoint or relay
 - Serves configured TCP, WebSocket, and Unix socket listeners
 
+What happens when you run it:
+
+- The command parses the TOML file into `DaemonConfig`
+- The daemon opens or creates the SQLite database configured by `sqlite_path`
+- It starts one listener task per configured transport
+- For each accepted connection it creates a fresh Vanta session and immediately sends a `HELLO` frame
+- It then runs the current reference session loop for that connection until the transport closes or the session errors
+
 Input file:
 
 - Use [`examples/daemon.toml`](/Users/benn/Documents/Projects/research/vanta-transfer-protocol/vanta-rs/examples/daemon.toml) as a template.
@@ -330,6 +338,106 @@ Operational notes:
 
 - Successful startup is silent right now; errors are returned directly to the terminal.
 - The current daemon implementation initiates and responds to the Vanta handshake, echoes requests, emits audit receipts for commands, and shares one session core across transport types.
+
+## What The Daemon Actually Does
+
+If you start the sample config:
+
+```bash
+cd vanta-rs
+cargo run -p vanta-cli -- run-daemon examples/daemon.toml
+```
+
+the following runtime behavior is available today.
+
+### Listeners that come up
+
+With the sample [`examples/daemon.toml`](/Users/benn/Documents/Projects/research/vanta-transfer-protocol/vanta-rs/examples/daemon.toml), the daemon starts:
+
+- a TCP listener on `127.0.0.1:7401`
+- a WebSocket listener on `127.0.0.1:7402`
+- a Unix domain socket listener at `/tmp/vanta-demo.sock`
+
+It also opens or creates:
+
+- a SQLite WAL database at `vanta-demo.db`
+
+That database is used by the reference storage layer for deduplication state, resume state, audit chain state, and registry cache.
+
+### What a client can do
+
+If a client already speaks the current Rust Vanta wire/runtime behavior, it can:
+
+- connect over TCP, WebSocket, or Unix socket
+- complete the current HELLO/AUTH/NEGOTIATE/CAPS handshake
+- send `REQUEST` frames and receive `RESPONSE` frames
+- send `COMMAND` frames with an `OperationID` extension and receive:
+  - an `AUDIT_RECEIPT` frame
+  - a `RESPONSE` frame carrying the applied or duplicate disposition
+- send `FLOW_CREDIT`, `ACK`, `HEARTBEAT`, and related control traffic through the same session core
+
+### What the daemon does for requests
+
+For a `REQUEST` frame:
+
+- it accepts the frame through the session runtime
+- it treats the payload as opaque bytes
+- it sends back a `RESPONSE` frame containing the same payload bytes
+
+This is currently an echo-style reference behavior, not an application-specific service.
+
+### What the daemon does for commands
+
+For a `COMMAND` frame:
+
+- it requires the runtime-level `OperationID` extension used by the current session implementation
+- it records deduplication state in SQLite
+- it computes and signs an audit receipt
+- it emits that receipt inside an `AUDIT_RECEIPT` frame
+- it sends a `RESPONSE` frame using the receipt’s disposition
+
+The important effect is that repeated commands with the same `(PeerID, OperationID)` pair produce duplicate handling behavior through the runtime/storage layer.
+
+### What the daemon does not do yet
+
+Running `run-daemon` does not give you a complete application node yet. It does not currently:
+
+- expose a higher-level application API on top of request/command payloads
+- include a CLI client that connects to the daemon and speaks the live protocol
+- extract audit receipt payloads from captured `AUDIT_RECEIPT` frames for you
+- implement a true blind relay/routing plane even though `mode = "Relay"` exists
+- provide graceful shutdown, structured logs, metrics, auth policy configuration, or production operational controls
+- implement a general pub/sub or streaming application service on top of the stream/event frame types
+
+### What `mode = "Relay"` means right now
+
+`mode = "Relay"` currently changes the daemon’s session role to `Relay` during handshake construction, but it does not yet turn the daemon into a functioning multi-hop forwarder. In practice:
+
+- `Endpoint` is the only meaningful mode for actual experimentation today
+- `Relay` should be treated as scaffolded protocol shape, not a finished feature
+
+### What you can do immediately after startup
+
+Practical things you can do right now:
+
+- keep the daemon running and connect a custom test client or integration harness to one of the configured listeners
+- use the Rust crates directly to build a small local client against the live daemon
+- inspect generated sample frames with `inspect-frame` to understand the wire shape before writing a client
+- use `generate-audit` and `verify-audit` to understand the audit payload format independently of a live connection
+
+What you cannot do entirely from the shipped CLI yet:
+
+- send a real live `REQUEST` or `COMMAND` to the running daemon from the CLI itself
+- fetch audit receipts back out of the daemon via a supported admin/API command
+
+### Mental model
+
+The current daemon is best understood as:
+
+- a runnable reference transport/server shell
+- backed by the real session runtime and durable storage
+- useful for protocol bring-up, interop harnesses, and codec/runtime debugging
+- not yet a feature-complete end-user node
 
 ## Typical workflows
 

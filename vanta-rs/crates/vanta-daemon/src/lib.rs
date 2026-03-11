@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::sync::Arc;
 use tokio::net::{TcpListener, UnixListener};
+use tokio::task::JoinSet;
 use vanta_crypto::IdentityKeypair;
 use vanta_registry::CompiledRegistry;
 use vanta_runtime::{
@@ -57,6 +58,18 @@ where
     storage: Arc<S>,
 }
 
+impl<S> Clone for Daemon<S>
+where
+    S: Storage,
+{
+    fn clone(&self) -> Self {
+        Self {
+            config: self.config.clone(),
+            storage: self.storage.clone(),
+        }
+    }
+}
+
 impl Daemon<SqliteStorage> {
     pub fn open(config: DaemonConfig) -> Result<Self> {
         let storage = SqliteStorage::open(&config.sqlite_path)?;
@@ -72,15 +85,28 @@ where
     S: Storage + 'static,
 {
     pub async fn run(self) -> Result<()> {
+        let mut tasks = JoinSet::new();
+
         if let Some(addr) = &self.config.listeners.tcp_addr {
-            self.run_tcp(addr).await?;
+            let daemon = self.clone();
+            let addr = addr.clone();
+            tasks.spawn(async move { daemon.run_tcp(&addr).await });
         }
         if let Some(addr) = &self.config.listeners.websocket_addr {
-            self.run_websocket(addr).await?;
+            let daemon = self.clone();
+            let addr = addr.clone();
+            tasks.spawn(async move { daemon.run_websocket(&addr).await });
         }
         if let Some(path) = &self.config.listeners.unix_socket_path {
-            self.run_unix(path).await?;
+            let daemon = self.clone();
+            let path = path.clone();
+            tasks.spawn(async move { daemon.run_unix(&path).await });
         }
+
+        while let Some(result) = tasks.join_next().await {
+            result??;
+        }
+
         Ok(())
     }
 
