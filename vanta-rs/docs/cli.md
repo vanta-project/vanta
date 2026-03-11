@@ -25,6 +25,7 @@ cargo build -p vanta-cli
 - Decode and pretty-print a binary or hex-encoded Vanta frame
 - Generate canonical sample frames for tests, docs, or local experiments
 - Generate a real signed sample audit receipt payload for verification workflows
+- Start a sample initiator peer that can connect to the daemon and exercise request/command flows
 - Verify an encoded audit receipt and print the resulting receipt hash
 - Compute the canonical transcript hash used by the handshake code
 - Start the reference daemon from a TOML config file
@@ -50,6 +51,7 @@ Commands:
   inspect-frame
   verify-audit
   generate-audit
+  run-peer
   transcript-hash
   run-daemon
   help              Print this message or the help of the given subcommand(s)
@@ -439,6 +441,91 @@ The current daemon is best understood as:
 - useful for protocol bring-up, interop harnesses, and codec/runtime debugging
 - not yet a feature-complete end-user node
 
+### `run-peer`
+
+Purpose:
+
+- Starts a sample initiator peer process
+- Connects to a running daemon using the same session runtime
+- Completes the live handshake
+- Sends either a `REQUEST` or `COMMAND`
+- Prints the resulting `RESPONSE` and, for commands, the emitted `AUDIT_RECEIPT`
+
+What it is for:
+
+- Actually testing the current protocol implementation without writing your own client first
+- Verifying that the daemon listeners and handshake work
+- Exercising deduplication by repeating the same command with the same peer identity and `OperationID`
+
+Sample request flow:
+
+```bash
+cargo run -p vanta-cli -- run-peer \
+  --daemon-config examples/daemon.toml \
+  --transport tcp \
+  --action request \
+  --payload hello-vanta
+```
+
+Sample command flow:
+
+```bash
+cargo run -p vanta-cli -- run-peer \
+  --daemon-config examples/daemon.toml \
+  --transport tcp \
+  --action command \
+  --payload mutate-once
+```
+
+Run the same command twice to exercise duplicate handling:
+
+```bash
+cargo run -p vanta-cli -- run-peer \
+  --daemon-config examples/daemon.toml \
+  --transport tcp \
+  --action command \
+  --payload mutate-once \
+  --identity-seed-hex 7777777777777777777777777777777777777777777777777777777777777777 \
+  --operation-id-hex 22222222222222222222222222222222
+
+cargo run -p vanta-cli -- run-peer \
+  --daemon-config examples/daemon.toml \
+  --transport tcp \
+  --action command \
+  --payload mutate-once \
+  --identity-seed-hex 7777777777777777777777777777777777777777777777777777777777777777 \
+  --operation-id-hex 22222222222222222222222222222222
+```
+
+Expected behavior:
+
+- first run: `audit disposition=Applied`
+- second run: `audit disposition=DuplicateApplied`
+
+Example output:
+
+```text
+peer_id=c853ad0f0cd2b619aea92ceec4fd56a24d6499d584ce79257e45cfd8139b60a7
+heartbeat ping_id=1048576 timestamp_millis=1773251959702
+session_active schema_token=1098448329 capability_token=841132702
+sent_Command message_id=50505050505050505050505050505050
+audit disposition=Applied receipt_id=03e28622b9281ae3b0d39a13133e1e1c receiver_peer_id=8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c
+response disposition=Applied payload=mutate-once
+session_id=3013677a832c4faee4ff6eeef0015c74
+```
+
+Transport support today:
+
+- `--transport tcp`
+- `--transport unix`
+
+Current limitations:
+
+- `run-peer` does not yet support client WebSocket mode
+- it uses the daemon config’s compiled registry and expects that config to match the running daemon
+- it is a sample peer for protocol bring-up, not a general interactive shell
+- duplicate-vs-applied is most clearly visible in the emitted `audit disposition=...` line; the current response path is still echo-oriented
+
 ## Typical workflows
 
 ### Bootstrap a fresh identity
@@ -496,9 +583,32 @@ You need the raw receipt payload bytes from an `AUDIT_RECEIPT` frame. The daemon
 - capture the full `AUDIT_RECEIPT` frame in your own integration test and write just the payload bytes to `receipt.bin`
 - generate a local payload with `generate-audit` when you only need a valid verification example
 
+### Bring up a real daemon and sample peer
+
+Terminal 1:
+
+```bash
+cd vanta-rs
+cargo run -p vanta-cli -- run-daemon examples/daemon.toml
+```
+
+Terminal 2:
+
+```bash
+cd vanta-rs
+cargo run -p vanta-cli -- run-peer --daemon-config examples/daemon.toml --transport tcp --action request --payload ping
+```
+
+Terminal 2, command path:
+
+```bash
+cargo run -p vanta-cli -- run-peer --daemon-config examples/daemon.toml --transport tcp --action command --payload apply-demo
+```
+
 ## Current limitations
 
 - `compile-registry` currently expects JSON input, not TOML.
 - `run-daemon` expects a compiled registry embedded in the TOML config rather than a manifest path.
 - `verify-audit` still expects a raw receipt payload rather than a full captured `AUDIT_RECEIPT` frame.
 - `verify-audit` verifies a single receipt at a time rather than an entire chain directory.
+- `run-peer` is currently a scripted sample initiator, not a general-purpose REPL or full client tool.

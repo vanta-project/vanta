@@ -13,4 +13,7 @@ tokio.workspace = true
 vanta-crypto = { path = "../vanta-crypto" }
 vanta-daemon = { path = "../vanta-daemon" }
 vanta-registry = { path = "../vanta-registry" }
+vanta-runtime = { path = "../vanta-runtime" }
+vanta-storage = { path = "../vanta-storage" }
+vanta-transport = { path = "../vanta-transport" }
 vanta-wire = { path = "../vanta-wire" }

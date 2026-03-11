@@ -1225,6 +1225,9 @@ dependencies = [
  "vanta-crypto",
  "vanta-daemon",
  "vanta-registry",
+ "vanta-runtime",
+ "vanta-storage",
+ "vanta-transport",
  "vanta-wire",
 ]
 
