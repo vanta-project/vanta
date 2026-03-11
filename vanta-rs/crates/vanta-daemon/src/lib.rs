@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::sync::Arc;
@@ -111,7 +111,9 @@ where
     }
 
     async fn run_tcp(&self, addr: &str) -> Result<()> {
-        let listener = TcpListener::bind(addr).await?;
+        let listener = TcpListener::bind(addr)
+            .await
+            .with_context(|| format!("failed to bind TCP listener at {addr}"))?;
         loop {
             let (stream, _) = listener.accept().await?;
             let session = self.new_session();
@@ -125,7 +127,9 @@ where
     }
 
     async fn run_websocket(&self, addr: &str) -> Result<()> {
-        let listener = TcpListener::bind(addr).await?;
+        let listener = TcpListener::bind(addr)
+            .await
+            .with_context(|| format!("failed to bind WebSocket listener at {addr}"))?;
         loop {
             let (stream, _) = listener.accept().await?;
             let session = self.new_session();
@@ -138,7 +142,8 @@ where
 
     async fn run_unix(&self, path: &str) -> Result<()> {
         let _ = std::fs::remove_file(path);
-        let listener = UnixListener::bind(path)?;
+        let listener = UnixListener::bind(path)
+            .with_context(|| format!("failed to bind Unix listener at {path}"))?;
         loop {
             let (stream, _) = listener.accept().await?;
             let session = self.new_session();
