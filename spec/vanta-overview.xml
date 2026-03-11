@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rfc version="3"
+     ipr="trust200902"
+     category="info"
+     submissionType="independent"
+     docName="draft-vanta-overview-00">
+
+  <front>
+    <title>Vanta Protocol Overview</title>
+
+    <author fullname="BENN" initials="B." surname="Author">
+      <organization>Independent</organization>
+    </author>
+
+    <date year="2026"/>
+
+    <abstract>
+      <t>
+        Vanta is a high-performance binary protocol for secure,
+        verifiable data exchange across heterogeneous transports.
+        It supports client/server, peer-to-peer, relay-routed,
+        pub/sub, and streaming communication patterns.
+      </t>
+    </abstract>
+  </front>
+
+  <middle>
+    <section anchor="introduction">
+      <name>Introduction</name>
+      <t>
+        Vanta is designed for low-latency, binary-first communication
+        with strong cryptographic identity, explicit control semantics,
+        schema evolution support, and protocol-native auditability.
+      </t>
+    </section>
+
+    <section anchor="terminology">
+      <name>Terminology</name>
+      <t>
+        The key words "MUST", "MUST NOT", "REQUIRED", "SHALL",
+        "SHALL NOT", "SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY",
+        and "OPTIONAL" in this document are to be interpreted as
+        described in RFC 2119 and RFC 8174 when, and only when,
+        they appear in all capitals.
+      </t>
+    </section>
+
+    <section anchor="goals">
+      <name>Design Goals</name>
+      <ul>
+        <li><t>binary-only framing</t></li>
+        <li><t>transport independence</t></li>
+        <li><t>strong mutual authentication</t></li>
+        <li><t>effectively-once mutation semantics</t></li>
+        <li><t>schema evolution and capability negotiation</t></li>
+        <li><t>signed audit chains</t></li>
+      </ul>
+    </section>
+
+    <section anchor="layer-model">
+      <name>Layer Model</name>
+      <sourcecode><![CDATA[
+Application
+    ^
+VAP - Application Payload Layer
+    ^
+VCP - Capability and Schema Negotiation
+    ^
+VSP - Secure Session Layer
+    ^
+VTP - Framing and Multiplexing Layer
+    ^
+Transport (TCP / WebSocket / Unix Socket / Relay)
+]]></sourcecode>
+    </section>
+
+    <section anchor="identifiers">
+      <name>Core Identifiers</name>
+      <table anchor="identifiers-table">
+        <name>Core Identifiers</name>
+        <thead>
+          <tr>
+            <th align="left">Identifier</th>
+            <th align="left">Size</th>
+            <th align="left">Purpose</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>PeerID</td><td>32 bytes</td><td>Ed25519 public key</td></tr>
+          <tr><td>SessionID</td><td>16 bytes</td><td>Session identifier</td></tr>
+          <tr><td>StreamID</td><td>8 bytes</td><td>Multiplexed stream identifier</td></tr>
+          <tr><td>MessageID</td><td>16 bytes</td><td>Unique message identifier</td></tr>
+          <tr><td>OperationID</td><td>16 bytes</td><td>Logical mutation identifier</td></tr>
+          <tr><td>CorrelationID</td><td>16 bytes</td><td>Request-response correlation</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section anchor="transports">
+      <name>Supported Transports</name>
+      <t>
+        Vanta is intended for use over TCP, WebSocket, Unix domain
+        sockets, and relay-routed channels. The transport MUST
+        provide reliable delivery.
+      </t>
+    </section>
+
+    <section anchor="document-map">
+      <name>Document Map</name>
+      <t>
+        The full Vanta specification is split into the following
+        companion documents:
+      </t>
+      <ul>
+        <li><t>Vanta Core Specification</t></li>
+        <li><t>Vanta Handshake and Secure Session Specification</t></li>
+        <li><t>Vanta Reliability and Control-Plane Specification</t></li>
+        <li><t>Vanta Audit Chain Specification</t></li>
+      </ul>
+    </section>
+  </middle>
+
+  <back>
+    <references>
+      <name>Normative References</name>
+
+      <reference anchor="RFC2119" target="https://www.rfc-editor.org/info/rfc2119">
+        <front>
+          <title>Key words for use in RFCs to Indicate Requirement Levels</title>
+          <author fullname="Scott Bradner" initials="S." surname="Bradner"/>
+          <date year="1997"/>
+        </front>
+        <seriesInfo name="RFC" value="2119"/>
+      </reference>
+
+      <reference anchor="RFC8174" target="https://www.rfc-editor.org/info/rfc8174">
+        <front>
+          <title>Ambiguity of Uppercase vs Lowercase in RFC 2119 Key Words</title>
+          <author fullname="B. Leiba" initials="B." surname="Leiba"/>
+          <date year="2017"/>
+        </front>
+        <seriesInfo name="RFC" value="8174"/>
+      </reference>
+    </references>
+  </back>
+</rfc>

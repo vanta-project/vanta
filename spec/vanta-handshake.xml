@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rfc version="3"
+     ipr="trust200902"
+     category="info"
+     submissionType="independent"
+     docName="draft-vanta-handshake-00">
+
+  <front>
+    <title>Vanta Handshake and Secure Session Specification</title>
+
+    <author fullname="BENN" initials="B." surname="Author">
+      <organization>Independent</organization>
+    </author>
+
+    <date year="2026"/>
+
+    <abstract>
+      <t>
+        This document defines the Vanta authenticated handshake,
+        session establishment, key derivation, and negotiation binding.
+      </t>
+    </abstract>
+  </front>
+
+  <middle>
+    <section anchor="goals">
+      <name>Security Goals</name>
+      <ul>
+        <li><t>mutual peer authentication</t></li>
+        <li><t>forward secrecy</t></li>
+        <li><t>downgrade resistance</t></li>
+        <li><t>transcript integrity</t></li>
+        <li><t>transport-independent identity</t></li>
+      </ul>
+    </section>
+
+    <section anchor="crypto-suite">
+      <name>Cryptographic Suite</name>
+      <table anchor="crypto-suite-table">
+        <name>Cryptographic Suite</name>
+        <thead>
+          <tr>
+            <th align="left">Component</th>
+            <th align="left">Algorithm</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>Identity signature</td><td>Ed25519</td></tr>
+          <tr><td>Ephemeral key agreement</td><td>X25519</td></tr>
+          <tr><td>Key derivation</td><td>HKDF-SHA-256</td></tr>
+          <tr><td>Session AEAD</td><td>ChaCha20-Poly1305</td></tr>
+          <tr><td>Transcript hash</td><td>SHA-256</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section anchor="identity">
+      <name>Peer Identity</name>
+      <t>
+        Each peer has a long-term Ed25519 identity key pair.
+        The public key bytes are the PeerID.
+      </t>
+      <t>
+        Implementations MAY use pinned public keys, centralized key
+        registries, or equivalent trust bootstrap mechanisms.
+      </t>
+    </section>
+
+    <section anchor="phases">
+      <name>Handshake Phases</name>
+      <ol>
+        <li><t>HELLO</t></li>
+        <li><t>AUTH_INIT</t></li>
+        <li><t>AUTH_FINISH</t></li>
+        <li><t>NEGOTIATE</t></li>
+        <li><t>CAPS_CONFIRM</t></li>
+      </ol>
+      <t>
+        Application data MUST NOT be exchanged before session activation.
+      </t>
+    </section>
+
+    <section anchor="hello">
+      <name>HELLO</name>
+      <t>
+        HELLO exchanges supported protocol versions, crypto suites,
+        maximum frame sizes, transport profiles, and feature sets.
+      </t>
+    </section>
+
+    <section anchor="auth-init">
+      <name>AUTH_INIT</name>
+      <t>
+        AUTH_INIT conveys the initiator identity, ephemeral X25519
+        public key, freshness data, and a signature over the current
+        handshake transcript and selected parameters.
+      </t>
+    </section>
+
+    <section anchor="auth-finish">
+      <name>AUTH_FINISH</name>
+      <t>
+        AUTH_FINISH conveys the responder identity, responder ephemeral
+        key, transcript commitment, and a signature over the handshake
+        transcript.
+      </t>
+    </section>
+
+    <section anchor="key-derivation">
+      <name>Key Derivation</name>
+      <t>
+        The shared secret is derived using X25519 over the local private
+        ephemeral key and the remote public ephemeral key.
+      </t>
+      <t>
+        HKDF-SHA-256 is then used to derive directional session keys,
+        nonce bases, resumption material, audit binding material,
+        and the SessionID.
+      </t>
+    </section>
+
+    <section anchor="negotiation">
+      <name>Capability and Schema Negotiation</name>
+      <t>
+        After peer authentication, both sides exchange schema family
+        support, schema versions, capability sets, extension namespaces,
+        and ordering profiles. No capability may be used before final
+        confirmation.
+      </t>
+    </section>
+
+    <section anchor="activation">
+      <name>Session Activation</name>
+      <t>
+        A session becomes active only after successful completion of
+        HELLO, authenticated key exchange, encrypted negotiation,
+        and capability confirmation.
+      </t>
+    </section>
+
+    <section anchor="mitm">
+      <name>Active Attack Resistance</name>
+      <t>
+        Vanta resists active man-in-the-middle attacks by signing the
+        ephemeral key exchange with long-term identity keys and binding
+        the selected version, suites, and negotiated properties to the
+        authenticated transcript.
+      </t>
+    </section>
+
+    <section anchor="resume">
+      <name>Resumption Foundation</name>
+      <t>
+        Vanta defines resumption material for reconnect optimization,
+        but resumption does not imply automatic replay of unacknowledged
+        data. Replay and retransmission remain explicit policy decisions.
+      </t>
+    </section>
+
+    <section anchor="security-considerations">
+      <name>Security Considerations</name>
+      <t>
+        Implementations MUST verify handshake signatures, MUST reject
+        transcript mismatches, and MUST NOT reuse AEAD nonces within
+        the same key scope.
+      </t>
+    </section>
+  </middle>
+
+  <back>
+    <references>
+      <name>Normative References</name>
+
+      <reference anchor="RFC5869" target="https://www.rfc-editor.org/info/rfc5869">
+        <front>
+          <title>HMAC-based Extract-and-Expand Key Derivation Function (HKDF)</title>
+          <author fullname="H. Krawczyk" initials="H." surname="Krawczyk"/>
+          <author fullname="P. Eronen" initials="P." surname="Eronen"/>
+          <date year="2010"/>
+        </front>
+        <seriesInfo name="RFC" value="5869"/>
+      </reference>
+
+      <reference anchor="RFC7748" target="https://www.rfc-editor.org/info/rfc7748">
+        <front>
+          <title>Elliptic Curves for Security</title>
+          <author fullname="A. Langley" initials="A." surname="Langley"/>
+          <author fullname="M. Hamburg" initials="M." surname="Hamburg"/>
+          <author fullname="S. Turner" initials="S." surname="Turner"/>
+          <date year="2016"/>
+        </front>
+        <seriesInfo name="RFC" value="7748"/>
+      </reference>
+
+      <reference anchor="RFC8032" target="https://www.rfc-editor.org/info/rfc8032">
+        <front>
+          <title>Edwards-Curve Digital Signature Algorithm (EdDSA)</title>
+          <author fullname="S. Josefsson" initials="S." surname="Josefsson"/>
+          <author fullname="I. Liusvaara" initials="I." surname="Liusvaara"/>
+          <date year="2017"/>
+        </front>
+        <seriesInfo name="RFC" value="8032"/>
+      </reference>
+
+      <reference anchor="RFC8439" target="https://www.rfc-editor.org/info/rfc8439">
+        <front>
+          <title>ChaCha20 and Poly1305 for IETF Protocols</title>
+          <author fullname="Y. Nir" initials="Y." surname="Nir"/>
+          <author fullname="A. Langley" initials="A." surname="Langley"/>
+          <date year="2018"/>
+        </front>
+        <seriesInfo name="RFC" value="8439"/>
+      </reference>
+    </references>
+  </back>
+</rfc>

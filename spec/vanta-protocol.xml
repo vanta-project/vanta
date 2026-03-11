@@ -1,0 +1,780 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rfc version="3"
+     ipr="trust200902"
+     category="info"
+     submissionType="independent"
+     docName="draft-vanta-protocol-00">
+
+  <front>
+    <title>Vanta Protocol</title>
+
+    <author fullname="BENN" initials="B." surname="Author">
+      <organization>Independent</organization>
+    </author>
+
+    <date year="2026"/>
+
+    <abstract>
+      <t>
+        Vanta is a high-performance binary protocol for secure,
+        verifiable data exchange across heterogeneous transports.
+        It supports client/server, peer-to-peer, relay-routed,
+        pub/sub, and streaming communication patterns.
+      </t>
+      <t>
+        Vanta emphasizes minimal latency, strong cryptographic identity,
+        effectively-once mutation semantics, schema evolution,
+        capability negotiation, and cryptographically verifiable
+        audit chains.
+      </t>
+    </abstract>
+  </front>
+
+  <middle>
+    <section anchor="introduction">
+      <name>Introduction</name>
+      <t>
+        Modern distributed systems often need to combine high throughput,
+        low latency, cryptographic authentication, protocol evolution,
+        and verifiable execution behavior. Existing protocols usually
+        solve only part of that problem space.
+      </t>
+      <t>
+        Vanta is designed as a binary protocol for secure, efficient,
+        transport-agnostic communication with protocol-native auditing
+        and explicit operational semantics.
+      </t>
+    </section>
+
+    <section anchor="terminology">
+      <name>Terminology</name>
+      <t>
+        The key words "MUST", "MUST NOT", "REQUIRED", "SHALL",
+        "SHALL NOT", "SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY",
+        and "OPTIONAL" in this document are to be interpreted as
+        described in RFC 2119 and RFC 8174 when, and only when,
+        they appear in all capitals.
+      </t>
+      <t>
+        The following protocol terms are used throughout this document:
+      </t>
+      <ul>
+        <li>
+          <t>
+            <bcp14>Peer</bcp14>: A protocol participant implementing Vanta.
+          </t>
+        </li>
+        <li>
+          <t>
+            <bcp14>Session</bcp14>: A cryptographically authenticated
+            communication channel established between two peers.
+          </t>
+        </li>
+        <li>
+          <t>
+            <bcp14>Stream</bcp14>: A logical communication channel
+            multiplexed inside a session.
+          </t>
+        </li>
+        <li>
+          <t>
+            <bcp14>Frame</bcp14>: A single Vanta protocol unit
+            transmitted over a transport.
+          </t>
+        </li>
+        <li>
+          <t>
+            <bcp14>Mutation</bcp14>: An operation that modifies
+            application state.
+          </t>
+        </li>
+        <li>
+          <t>
+            <bcp14>Audit Receipt</bcp14>: A signed record describing
+            a protocol event.
+          </t>
+        </li>
+      </ul>
+    </section>
+
+    <section anchor="protocol-overview">
+      <name>Protocol Overview</name>
+      <t>
+        Vanta is structured into four logical layers:
+      </t>
+      <ul>
+        <li><t>VTP: framing and multiplexing</t></li>
+        <li><t>VSP: secure session establishment and transport protection</t></li>
+        <li><t>VCP: capability and schema negotiation</t></li>
+        <li><t>VAP: application payload semantics</t></li>
+      </ul>
+      <t>
+        Vanta is intended to operate over reliable transports including
+        TCP, WebSocket, and Unix domain sockets, and can also be routed
+        through blind relay nodes.
+      </t>
+    </section>
+
+    <section anchor="goals">
+      <name>Design Goals</name>
+      <t>
+        Vanta has the following primary design goals:
+      </t>
+      <ul>
+        <li><t>binary-only framing for efficient parsing</t></li>
+        <li><t>strong security with low cryptographic overhead</t></li>
+        <li><t>transport independence</t></li>
+        <li><t>effectively-once semantics for mutations</t></li>
+        <li><t>schema evolution and capability negotiation</t></li>
+        <li><t>explicit control-plane reliability</t></li>
+        <li><t>verifiable auditability without payload disclosure</t></li>
+      </ul>
+    </section>
+
+    <section anchor="layer-model">
+      <name>Layer Model</name>
+      <t>
+        Conceptually, the protocol stack is:
+      </t>
+      <sourcecode><![CDATA[
+Application
+    ^
+VAP - Application Payload Layer
+    ^
+VCP - Capability and Schema Negotiation
+    ^
+VSP - Secure Session Layer
+    ^
+VTP - Framing and Multiplexing Layer
+    ^
+Transport (TCP / WebSocket / Unix Socket / Relay)
+]]></sourcecode>
+    </section>
+
+    <section anchor="identifiers">
+      <name>Core Identifiers</name>
+      <t>
+        Vanta defines a number of fixed-width identifiers.
+      </t>
+      <table anchor="identifiers-table">
+        <name>Core Identifiers</name>
+        <thead>
+          <tr>
+            <th align="left">Identifier</th>
+            <th align="left">Size</th>
+            <th align="left">Purpose</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>PeerID</td>
+            <td>32 bytes</td>
+            <td>Ed25519 public key</td>
+          </tr>
+          <tr>
+            <td>SessionID</td>
+            <td>16 bytes</td>
+            <td>Session identifier</td>
+          </tr>
+          <tr>
+            <td>StreamID</td>
+            <td>8 bytes</td>
+            <td>Multiplexed stream identifier</td>
+          </tr>
+          <tr>
+            <td>MessageID</td>
+            <td>16 bytes</td>
+            <td>Unique message identifier</td>
+          </tr>
+          <tr>
+            <td>OperationID</td>
+            <td>16 bytes</td>
+            <td>Logical mutation identifier</td>
+          </tr>
+          <tr>
+            <td>CorrelationID</td>
+            <td>16 bytes</td>
+            <td>Request-response correlation</td>
+          </tr>
+          <tr>
+            <td>SchemaFamilyID</td>
+            <td>8 bytes</td>
+            <td>Schema family identifier</td>
+          </tr>
+          <tr>
+            <td>SchemaVersionID</td>
+            <td>4 bytes</td>
+            <td>Schema version identifier</td>
+          </tr>
+          <tr>
+            <td>CapabilitySetID</td>
+            <td>8 bytes</td>
+            <td>Capability group identifier</td>
+          </tr>
+          <tr>
+            <td>AuditReceiptID</td>
+            <td>16 bytes</td>
+            <td>Audit receipt identifier</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section anchor="transport-requirements">
+      <name>Transport Requirements</name>
+      <t>
+        The underlying transport MUST provide reliable delivery.
+        It MAY provide either a continuous ordered byte stream
+        or message boundaries.
+      </t>
+      <t>
+        The initial intended transports are TCP, WebSocket,
+        and Unix domain sockets.
+      </t>
+      <t>
+        A relay transport MAY forward Vanta traffic, but a blind relay
+        MUST NOT decrypt end-to-end protected payloads and MUST NOT
+        modify protected frame contents.
+      </t>
+    </section>
+
+    <section anchor="framing">
+      <name>Message Framing (VTP)</name>
+      <t>
+        All Vanta communication occurs through binary frames.
+        Each frame consists of:
+      </t>
+      <ul>
+        <li><t>a fixed-size base header</t></li>
+        <li><t>an optional extension block</t></li>
+        <li><t>a payload</t></li>
+        <li><t>an optional AEAD authentication trailer</t></li>
+      </ul>
+      <t>
+        All fixed-width integers are encoded in network byte order
+        (big-endian).
+      </t>
+    </section>
+
+    <section anchor="base-header">
+      <name>Base Header Layout</name>
+      <t>
+        The Vanta base header is fixed at 80 bytes.
+      </t>
+      <table anchor="base-header-table">
+        <name>Base Header Fields</name>
+        <thead>
+          <tr>
+            <th align="left">Offset</th>
+            <th align="left">Size</th>
+            <th align="left">Field</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>0</td><td>4</td><td>Magic ("VTP1")</td></tr>
+          <tr><td>4</td><td>1</td><td>MajorVersion</td></tr>
+          <tr><td>5</td><td>1</td><td>MinorVersion</td></tr>
+          <tr><td>6</td><td>2</td><td>HeaderLength</td></tr>
+          <tr><td>8</td><td>4</td><td>FrameLength</td></tr>
+          <tr><td>12</td><td>2</td><td>ExtensionLength</td></tr>
+          <tr><td>14</td><td>1</td><td>FrameType</td></tr>
+          <tr><td>15</td><td>1</td><td>Flags</td></tr>
+          <tr><td>16</td><td>4</td><td>HeaderCRC32C</td></tr>
+          <tr><td>20</td><td>16</td><td>SessionID</td></tr>
+          <tr><td>36</td><td>8</td><td>StreamID</td></tr>
+          <tr><td>44</td><td>16</td><td>MessageID</td></tr>
+          <tr><td>60</td><td>8</td><td>Sequence</td></tr>
+          <tr><td>68</td><td>4</td><td>PayloadLength</td></tr>
+          <tr><td>72</td><td>4</td><td>SchemaToken</td></tr>
+          <tr><td>76</td><td>4</td><td>CapabilityToken</td></tr>
+        </tbody>
+      </table>
+      <t>
+        Implementations MUST validate header lengths and frame lengths
+        before processing payload data.
+      </t>
+    </section>
+
+    <section anchor="frame-flags">
+      <name>Frame Flags</name>
+      <table anchor="flags-table">
+        <name>Frame Flags</name>
+        <thead>
+          <tr>
+            <th align="left">Bit</th>
+            <th align="left">Name</th>
+            <th align="left">Meaning</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>0</td><td>ENC</td><td>Session-encrypted frame</td></tr>
+          <tr><td>1</td><td>E2E</td><td>End-to-end encrypted payload</td></tr>
+          <tr><td>2</td><td>ACK_REQ</td><td>Explicit acknowledgement requested</td></tr>
+          <tr><td>3</td><td>ORDERED</td><td>Ordered stream semantics requested</td></tr>
+          <tr><td>4</td><td>CTRL</td><td>Control-plane frame</td></tr>
+          <tr><td>5</td><td>RETRANSMIT</td><td>Retransmitted frame</td></tr>
+          <tr><td>6</td><td>FRAG</td><td>Fragmented payload</td></tr>
+          <tr><td>7</td><td>RESERVED</td><td>Reserved; MUST be zero in v0</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section anchor="frame-types">
+      <name>Frame Types</name>
+      <table anchor="frame-types-table">
+        <name>Frame Types</name>
+        <thead>
+          <tr>
+            <th align="left">Code</th>
+            <th align="left">Name</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>0x01</td><td>HELLO</td></tr>
+          <tr><td>0x02</td><td>AUTH</td></tr>
+          <tr><td>0x03</td><td>NEGOTIATE</td></tr>
+          <tr><td>0x04</td><td>CAPS</td></tr>
+          <tr><td>0x10</td><td>REQUEST</td></tr>
+          <tr><td>0x11</td><td>RESPONSE</td></tr>
+          <tr><td>0x12</td><td>COMMAND</td></tr>
+          <tr><td>0x13</td><td>EVENT</td></tr>
+          <tr><td>0x20</td><td>STREAM_OPEN</td></tr>
+          <tr><td>0x21</td><td>STREAM_DATA</td></tr>
+          <tr><td>0x22</td><td>STREAM_CLOSE</td></tr>
+          <tr><td>0x30</td><td>ACK</td></tr>
+          <tr><td>0x31</td><td>NACK</td></tr>
+          <tr><td>0x32</td><td>FLOW_CREDIT</td></tr>
+          <tr><td>0x33</td><td>HEARTBEAT</td></tr>
+          <tr><td>0x34</td><td>ERROR</td></tr>
+          <tr><td>0x35</td><td>AUDIT_RECEIPT</td></tr>
+          <tr><td>0x36</td><td>SCHEMA_HINT</td></tr>
+          <tr><td>0x37</td><td>ROUTE_ENVELOPE</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section anchor="extensions">
+      <name>Extension Block</name>
+      <t>
+        Frames MAY contain extension fields using a compact TLV encoding.
+        In v0, extension items use a one-byte type field, one-byte length
+        field, and a variable-length value.
+      </t>
+      <sourcecode><![CDATA[
++---------+---------+-----------------+
+| Type(u8)| Len(u8) | Value(len bytes)|
++---------+---------+-----------------+
+]]></sourcecode>
+      <t>
+        Unknown optional extension types MAY be ignored according to
+        negotiated extension policy. Unknown mandatory extension types
+        MUST cause frame rejection.
+      </t>
+    </section>
+
+    <section anchor="secure-session">
+      <name>Secure Session Protocol (VSP)</name>
+      <t>
+        Session establishment proceeds in the following phases:
+      </t>
+      <ol>
+        <li><t>HELLO exchange</t></li>
+        <li><t>AUTH_INIT</t></li>
+        <li><t>AUTH_FINISH</t></li>
+        <li><t>NEGOTIATE</t></li>
+        <li><t>CAPS_CONFIRM</t></li>
+      </ol>
+      <t>
+        A session MUST NOT carry application data until the handshake
+        and negotiation phases are complete.
+      </t>
+    </section>
+
+    <section anchor="crypto-suite">
+      <name>Cryptographic Suite</name>
+      <t>
+        The default Vanta v0 cryptographic suite is:
+      </t>
+      <table anchor="crypto-suite-table-suite">
+        <name>Cryptographic Suite</name>
+        <thead>
+          <tr>
+            <th align="left">Component</th>
+            <th align="left">Algorithm</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>Identity signature</td><td>Ed25519</td></tr>
+          <tr><td>Ephemeral key agreement</td><td>X25519</td></tr>
+          <tr><td>Key derivation</td><td>HKDF-SHA-256</td></tr>
+          <tr><td>Session AEAD</td><td>ChaCha20-Poly1305</td></tr>
+          <tr><td>Transcript hash</td><td>SHA-256</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section anchor="peer-identity">
+      <name>Peer Identity</name>
+      <t>
+        Each peer has a long-term Ed25519 identity key pair.
+        The public key bytes constitute the PeerID.
+      </t>
+      <t>
+        Trust establishment is out of scope for the wire protocol.
+        Implementations MAY use pinned keys, centralized key registries,
+        or equivalent trust bootstrap mechanisms.
+      </t>
+    </section>
+
+    <section anchor="key-derivation">
+      <name>Key Derivation</name>
+      <t>
+        After authenticated exchange of ephemeral X25519 public keys,
+        both peers derive a shared Diffie-Hellman secret and use
+        HKDF-SHA-256 to derive directional session keys, nonce bases,
+        a session identifier, and optional resumption material.
+      </t>
+      <t>
+        A Vanta implementation MUST NOT reuse an AEAD nonce under the
+        same session key.
+      </t>
+    </section>
+
+    <section anchor="capability-negotiation">
+      <name>Capability and Schema Negotiation (VCP)</name>
+      <t>
+        During negotiation, peers exchange supported schema families,
+        schema versions, protocol capabilities, and extension namespaces.
+      </t>
+      <t>
+        A capability or extension MUST NOT be used unless it has been
+        positively negotiated.
+      </t>
+      <t>
+        Vanta schemas are intended to support optional fields, unknown
+        field tolerance, and explicit version tracking.
+      </t>
+    </section>
+
+    <section anchor="message-semantics">
+      <name>Message Semantics (VAP)</name>
+      <t>
+        Vanta supports request/response, commands, events, and streams.
+      </t>
+
+      <section anchor="request-response">
+        <name>Request / Response</name>
+        <t>
+          Requests and responses are linked using CorrelationID
+          where applicable.
+        </t>
+      </section>
+
+      <section anchor="commands">
+        <name>Commands</name>
+        <t>
+          Mutating operations are carried in COMMAND frames.
+          A command MUST include MessageID, OperationID, and
+          an idempotency token or equivalent deduplication key.
+        </t>
+      </section>
+
+      <section anchor="events">
+        <name>Events</name>
+        <t>
+          EVENT frames are used for pub/sub and asynchronous signaling.
+        </t>
+      </section>
+
+      <section anchor="streams">
+        <name>Streams</name>
+        <t>
+          Large or continuous data transfer uses STREAM_OPEN,
+          STREAM_DATA, and STREAM_CLOSE frames.
+        </t>
+      </section>
+    </section>
+
+    <section anchor="control-plane">
+      <name>Control Frames and Reliability</name>
+      <t>
+        Vanta distinguishes a control plane from the data plane.
+        Control frames are used for acknowledgements, flow control,
+        heartbeats, error reporting, session coordination,
+        and audit receipts.
+      </t>
+      <t>
+        Control-plane traffic SHOULD be prioritized over application
+        data traffic.
+      </t>
+    </section>
+
+    <section anchor="acknowledgements">
+      <name>Acknowledgements</name>
+      <t>
+        Vanta distinguishes transport acknowledgement from semantic
+        acknowledgement.
+      </t>
+      <ul>
+        <li>
+          <t>
+            Transport acknowledgement confirms that a frame was received
+            and parsed at the protocol layer.
+          </t>
+        </li>
+        <li>
+          <t>
+            Semantic acknowledgement confirms the result of application
+            handling, such as mutation application or rejection.
+          </t>
+        </li>
+      </ul>
+    </section>
+
+    <section anchor="flow-control">
+      <name>Flow Control</name>
+      <t>
+        Flow control is receiver-driven. The receiver grants credits
+        that limit outstanding bytes and, optionally, message counts.
+      </t>
+      <t>
+        A sender MUST stop sending data-plane traffic when its credits
+        are exhausted, except where control-plane reservation rules
+        apply.
+      </t>
+    </section>
+
+    <section anchor="delivery-semantics">
+      <name>Effectively-Once Mutation Semantics</name>
+      <t>
+        Vanta targets effectively-once semantics for mutations.
+        Duplicate detection is based on sender identity and mutation
+        identifiers, not on transport delivery alone.
+      </t>
+      <t>
+        A receiver SHOULD maintain a deduplication cache for the active
+        session and return an explicit semantic disposition such as:
+      </t>
+      <ul>
+        <li><t>APPLIED</t></li>
+        <li><t>DUPLICATE_APPLIED</t></li>
+        <li><t>DUPLICATE_REJECTED</t></li>
+        <li><t>VALIDATION_FAILED</t></li>
+        <li><t>CAPABILITY_DENIED</t></li>
+      </ul>
+    </section>
+
+    <section anchor="retransmission">
+      <name>Retransmission</name>
+      <t>
+        Retransmission is explicit. A retransmitted frame MUST preserve
+        the original MessageID and any relevant OperationID.
+      </t>
+      <t>
+        A retransmitted frame SHOULD set the RETRANSMIT flag.
+      </t>
+    </section>
+
+    <section anchor="reconnection">
+      <name>Reconnection and Failure Semantics</name>
+      <t>
+        After a transport failure, a peer MAY reconnect using protocol
+        policy and optional resume support.
+      </t>
+      <t>
+        A mutation whose semantic result is not known at disconnect time
+        MUST be treated as UNKNOWN_AFTER_DISCONNECT until reconciled by
+        retry, state query, or application-level recovery.
+      </t>
+    </section>
+
+    <section anchor="audit-overview">
+      <name>Audit Chain and Verifiable Execution Model</name>
+      <t>
+        Vanta includes a protocol-native audit system for important
+        events including mutation handling, validation failures,
+        retransmissions, and session milestones.
+      </t>
+      <t>
+        Audit receipts are designed to be compact, deterministic,
+        cryptographically signed, and tamper-evident.
+      </t>
+    </section>
+
+    <section anchor="audit-receipts">
+      <name>Audit Receipt Format</name>
+      <t>
+        An AUDIT_RECEIPT frame contains, at minimum, a receipt
+        identifier, a previous receipt hash, a session identifier,
+        message and operation identifiers where applicable, sender
+        and receiver peer identifiers, an event type, a disposition,
+        a payload hash, a timestamp, and a receiver signature.
+      </t>
+      <t>
+        Audit records MUST NOT include plaintext application payloads.
+      </t>
+    </section>
+
+    <section anchor="audit-chain">
+      <name>Audit Chain Construction</name>
+      <t>
+        Audit receipts form an append-only hash chain.
+        Each receipt commits to the previous receipt hash.
+      </t>
+      <sourcecode><![CDATA[
+ReceiptHash_n = SHA256(CanonicalReceiptFields || PreviousReceiptHash)
+]]></sourcecode>
+      <t>
+        A verifier can therefore detect missing, modified, or reordered
+        receipts.
+      </t>
+    </section>
+
+    <section anchor="privacy-properties">
+      <name>Privacy Properties</name>
+      <t>
+        The audit system is intended to preserve confidentiality by
+        storing only metadata and hashes rather than application
+        payloads or query contents.
+      </t>
+      <t>
+        End-to-end encrypted payloads SHOULD be hashed in ciphertext
+        form for audit binding.
+      </t>
+    </section>
+
+    <section anchor="protocol-invariants">
+      <name>Protocol Invariants</name>
+      <t>
+        The following invariants apply to Vanta v0:
+      </t>
+      <ul>
+        <li><t>Every semantic message MUST have a unique MessageID.</t></li>
+        <li><t>Every mutation MUST have an OperationID.</t></li>
+        <li><t>Session encryption is mandatory after handshake completion.</t></li>
+        <li><t>A capability MUST NOT be used before negotiation.</t></li>
+        <li><t>Unknown schema fields SHOULD be ignored according to schema policy.</t></li>
+        <li><t>Silent downgrade of negotiated features MUST NOT occur.</t></li>
+        <li><t>Audit chains MUST be append-only and MUST NOT fork.</t></li>
+        <li><t>Retransmissions MUST preserve semantic identifiers.</t></li>
+      </ul>
+    </section>
+
+    <section anchor="implementation-notes">
+      <name>Implementation Notes</name>
+      <t>
+        The initial intended implementation targets are Rust, Go,
+        and TypeScript. A Rust implementation is expected to serve
+        as the canonical reference due to its suitability for binary
+        parsing, cryptography, async networking, and correctness-focused
+        protocol engineering.
+      </t>
+    </section>
+
+    <section anchor="future-work">
+      <name>Future Work</name>
+      <t>
+        Potential future extensions include compression negotiation,
+        QUIC transport support, Merkle-based audit summaries,
+        multi-signer receipts, hardware-backed signing, and
+        zero-knowledge audit proofs.
+      </t>
+    </section>
+
+    <section anchor="security-considerations">
+      <name>Security Considerations</name>
+      <t>
+        Implementations MUST verify peer signatures during handshake,
+        MUST bind negotiated protocol properties to the authenticated
+        transcript, and MUST prevent AEAD nonce reuse.
+      </t>
+      <t>
+        Compromise of a peer's long-term identity key can invalidate
+        authentication and audit attribution for that peer.
+      </t>
+      <t>
+        Implementations SHOULD use strong randomness for nonces,
+        ephemeral key generation, and identifier generation where
+        unpredictability is required.
+      </t>
+    </section>
+
+    <section anchor="privacy-considerations">
+      <name>Privacy Considerations</name>
+      <t>
+        Even when payloads are encrypted, routing and operational
+        metadata may remain observable to transports or relays,
+        depending on deployment mode.
+      </t>
+      <t>
+        Implementations SHOULD minimize exposed metadata, especially
+        in relay-routed topologies.
+      </t>
+    </section>
+  </middle>
+
+  <back>
+    <references>
+      <name>Normative References</name>
+
+      <reference anchor="RFC2119" target="https://www.rfc-editor.org/info/rfc2119">
+        <front>
+          <title>Key words for use in RFCs to Indicate Requirement Levels</title>
+          <author fullname="Scott Bradner" initials="S." surname="Bradner"/>
+          <date year="1997"/>
+        </front>
+        <seriesInfo name="RFC" value="2119"/>
+      </reference>
+
+      <reference anchor="RFC8174" target="https://www.rfc-editor.org/info/rfc8174">
+        <front>
+          <title>Ambiguity of Uppercase vs Lowercase in RFC 2119 Key Words</title>
+          <author fullname="B. Leiba" initials="B." surname="Leiba"/>
+          <date year="2017"/>
+        </front>
+        <seriesInfo name="RFC" value="8174"/>
+      </reference>
+
+      <reference anchor="RFC5869" target="https://www.rfc-editor.org/info/rfc5869">
+        <front>
+          <title>HMAC-based Extract-and-Expand Key Derivation Function (HKDF)</title>
+          <author fullname="H. Krawczyk" initials="H." surname="Krawczyk"/>
+          <author fullname="P. Eronen" initials="P." surname="Eronen"/>
+          <date year="2010"/>
+        </front>
+        <seriesInfo name="RFC" value="5869"/>
+      </reference>
+
+      <reference anchor="RFC7748" target="https://www.rfc-editor.org/info/rfc7748">
+        <front>
+          <title>Elliptic Curves for Security</title>
+          <author fullname="A. Langley" initials="A." surname="Langley"/>
+          <author fullname="M. Hamburg" initials="M." surname="Hamburg"/>
+          <author fullname="S. Turner" initials="S." surname="Turner"/>
+          <date year="2016"/>
+        </front>
+        <seriesInfo name="RFC" value="7748"/>
+      </reference>
+
+      <reference anchor="RFC8032" target="https://www.rfc-editor.org/info/rfc8032">
+        <front>
+          <title>Edwards-Curve Digital Signature Algorithm (EdDSA)</title>
+          <author fullname="S. Josefsson" initials="S." surname="Josefsson"/>
+          <author fullname="I. Liusvaara" initials="I." surname="Liusvaara"/>
+          <date year="2017"/>
+        </front>
+        <seriesInfo name="RFC" value="8032"/>
+      </reference>
+
+      <reference anchor="RFC8439" target="https://www.rfc-editor.org/info/rfc8439">
+        <front>
+          <title>ChaCha20 and Poly1305 for IETF Protocols</title>
+          <author fullname="Y. Nir" initials="Y." surname="Nir"/>
+          <author fullname="A. Langley" initials="A." surname="Langley"/>
+          <date year="2018"/>
+        </front>
+        <seriesInfo name="RFC" value="8439"/>
+      </reference>
+    </references>
+  </back>
+</rfc>

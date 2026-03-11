@@ -1,0 +1,168 @@
+
+
+
+
+Network Working Group                                          B. Author
+Internet-Draft                                               Independent
+Intended status: Informational                             11 March 2026
+Expires: 12 September 2026
+
+
+                    Vanta Audit Chain Specification
+                          draft-vanta-audit-00
+
+Abstract
+
+   This document defines the Vanta audit receipt format, receipt
+   chaining model, event classes, and verification rules for
+   cryptographically verifiable execution tracing.
+
+Status of This Memo
+
+   This Internet-Draft is submitted in full conformance with the
+   provisions of BCP 78 and BCP 79.
+
+   Internet-Drafts are working documents of the Internet Engineering
+   Task Force (IETF).  Note that other groups may also distribute
+   working documents as Internet-Drafts.  The list of current Internet-
+   Drafts is at https://datatracker.ietf.org/drafts/current/.
+
+   Internet-Drafts are draft documents valid for a maximum of six months
+   and may be updated, replaced, or obsoleted by other documents at any
+   time.  It is inappropriate to use Internet-Drafts as reference
+   material or to cite them other than as "work in progress."
+
+   This Internet-Draft will expire on 12 September 2026.
+
+Copyright Notice
+
+   Copyright (c) 2026 IETF Trust and the persons identified as the
+   document authors.  All rights reserved.
+
+   This document is subject to BCP 78 and the IETF Trust's Legal
+   Provisions Relating to IETF Documents (https://trustee.ietf.org/
+   license-info) in effect on the date of publication of this document.
+   Please review these documents carefully, as they describe your rights
+   and restrictions with respect to this document.
+
+
+
+
+
+
+
+
+
+Author                  Expires 12 September 2026               [Page 1]
+
+Internet-Draft       Vanta Audit Chain Specification          March 2026
+
+
+Table of Contents
+
+   1.  Overview  . . . . . . . . . . . . . . . . . . . . . . . . . .   2
+   2.  Audit Event Classes . . . . . . . . . . . . . . . . . . . . .   2
+   3.  Receipt Format  . . . . . . . . . . . . . . . . . . . . . . .   2
+   4.  Payload Hashing . . . . . . . . . . . . . . . . . . . . . . .   2
+   5.  Receipt Chain Construction  . . . . . . . . . . . . . . . . .   2
+   6.  Receipt Signatures  . . . . . . . . . . . . . . . . . . . . .   3
+   7.  Verification  . . . . . . . . . . . . . . . . . . . . . . . .   3
+   8.  Cross-Session Continuity  . . . . . . . . . . . . . . . . . .   3
+   9.  Privacy Properties  . . . . . . . . . . . . . . . . . . . . .   3
+   10. Audit Failure Handling  . . . . . . . . . . . . . . . . . . .   3
+   11. Security Considerations . . . . . . . . . . . . . . . . . . .   3
+   12. Normative References  . . . . . . . . . . . . . . . . . . . .   3
+   Author's Address  . . . . . . . . . . . . . . . . . . . . . . . .   3
+
+1.  Overview
+
+   Vanta includes a protocol-native audit layer for important protocol
+   and application events.  Audit receipts are intended to be compact,
+   deterministic, signed, and tamper-evident.
+
+2.  Audit Event Classes
+
+   Audit receipts may be emitted for mutation application, duplicate
+   handling, validation failures, retransmissions, and session lifecycle
+   events.
+
+3.  Receipt Format
+
+   An audit receipt contains at least a receipt identifier, a previous
+   receipt hash, session and stream identifiers, message and operation
+   identifiers where applicable, sender and receiver peer identifiers,
+   an event type, a disposition code, a payload hash, a timestamp, and a
+   receiver signature.
+
+4.  Payload Hashing
+
+   Audit records MUST NOT include plaintext payload content.  Instead,
+   they bind to payload bytes using a cryptographic hash.  For end-to-
+   end encrypted payloads, the ciphertext SHOULD be hashed for audit
+   binding.
+
+5.  Receipt Chain Construction
+
+   Audit receipts form an append-only hash chain.  Each receipt commits
+   to the previous receipt hash.
+
+
+
+
+Author                  Expires 12 September 2026               [Page 2]
+
+Internet-Draft       Vanta Audit Chain Specification          March 2026
+
+
+   ReceiptHash_n = SHA256(CanonicalReceiptFields || PreviousReceiptHash)
+
+6.  Receipt Signatures
+
+   Audit receipts are signed by the receiver using its long-term Ed25519
+   identity key.  This provides authenticity, attribution, and tamper
+   evidence.
+
+7.  Verification
+
+   A verifier checks the receipt signature, recomputes the receipt hash,
+   verifies continuity to the previous receipt hash, and validates the
+   payload hash and referenced identifiers where available.
+
+8.  Cross-Session Continuity
+
+   Implementations MAY support cross-session audit continuity by
+   referencing the terminal receipt hash of a previous session.
+
+9.  Privacy Properties
+
+   The audit layer intentionally stores metadata and hashes rather than
+   payload contents or full application queries.  This is intended to
+   balance verifiability with confidentiality.
+
+10.  Audit Failure Handling
+
+   If receipt generation or verification fails under a policy that
+   requires audit integrity, the implementation SHOULD emit an explicit
+   protocol error and MAY terminate the session.
+
+11.  Security Considerations
+
+   Compromise of a peer's long-term signing key can invalidate receipt
+   attribution for that peer.  Implementations SHOULD protect long-term
+   keys and receipt logs accordingly.
+
+12.  Normative References
+
+   [RFC8032]  Josefsson, S. and I. Liusvaara, "Edwards-Curve Digital
+              Signature Algorithm (EdDSA)", RFC 8032, 2017,
+              <https://www.rfc-editor.org/info/rfc8032>.
+
+Author's Address
+
+   BENN
+   Independent
+
+
+
+
+Author                  Expires 12 September 2026               [Page 3]

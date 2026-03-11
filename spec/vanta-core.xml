@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rfc version="3"
+     ipr="trust200902"
+     category="info"
+     submissionType="independent"
+     docName="draft-vanta-core-00">
+
+  <front>
+    <title>Vanta Core Specification</title>
+
+    <author fullname="BENN" initials="B." surname="Author">
+      <organization>Independent</organization>
+    </author>
+
+    <date year="2026"/>
+
+    <abstract>
+      <t>
+        This document defines the Vanta core wire format, frame model,
+        base header layout, extension model, and message semantics.
+      </t>
+    </abstract>
+  </front>
+
+  <middle>
+    <section anchor="framing">
+      <name>Message Framing</name>
+      <t>
+        All Vanta communication occurs through binary frames consisting
+        of a fixed-size base header, an optional extension block,
+        a payload, and an optional authentication trailer.
+      </t>
+      <t>
+        All fixed-width integers are encoded in network byte order.
+      </t>
+    </section>
+
+    <section anchor="base-header">
+      <name>Base Header Layout</name>
+      <t>
+        The base header is fixed at 80 bytes.
+      </t>
+      <table anchor="base-header-table">
+        <name>Base Header Fields</name>
+        <thead>
+          <tr>
+            <th align="left">Offset</th>
+            <th align="left">Size</th>
+            <th align="left">Field</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>0</td><td>4</td><td>Magic ("VTP1")</td></tr>
+          <tr><td>4</td><td>1</td><td>MajorVersion</td></tr>
+          <tr><td>5</td><td>1</td><td>MinorVersion</td></tr>
+          <tr><td>6</td><td>2</td><td>HeaderLength</td></tr>
+          <tr><td>8</td><td>4</td><td>FrameLength</td></tr>
+          <tr><td>12</td><td>2</td><td>ExtensionLength</td></tr>
+          <tr><td>14</td><td>1</td><td>FrameType</td></tr>
+          <tr><td>15</td><td>1</td><td>Flags</td></tr>
+          <tr><td>16</td><td>4</td><td>HeaderCRC32C</td></tr>
+          <tr><td>20</td><td>16</td><td>SessionID</td></tr>
+          <tr><td>36</td><td>8</td><td>StreamID</td></tr>
+          <tr><td>44</td><td>16</td><td>MessageID</td></tr>
+          <tr><td>60</td><td>8</td><td>Sequence</td></tr>
+          <tr><td>68</td><td>4</td><td>PayloadLength</td></tr>
+          <tr><td>72</td><td>4</td><td>SchemaToken</td></tr>
+          <tr><td>76</td><td>4</td><td>CapabilityToken</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section anchor="flags">
+      <name>Frame Flags</name>
+      <table anchor="flags-table">
+        <name>Frame Flags</name>
+        <thead>
+          <tr>
+            <th align="left">Bit</th>
+            <th align="left">Name</th>
+            <th align="left">Meaning</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>0</td><td>ENC</td><td>Session-encrypted frame</td></tr>
+          <tr><td>1</td><td>E2E</td><td>End-to-end encrypted payload</td></tr>
+          <tr><td>2</td><td>ACK_REQ</td><td>Explicit acknowledgement requested</td></tr>
+          <tr><td>3</td><td>ORDERED</td><td>Ordered delivery requested</td></tr>
+          <tr><td>4</td><td>CTRL</td><td>Control-plane frame</td></tr>
+          <tr><td>5</td><td>RETRANSMIT</td><td>Retransmitted frame</td></tr>
+          <tr><td>6</td><td>FRAG</td><td>Fragmented payload</td></tr>
+          <tr><td>7</td><td>RESERVED</td><td>MUST be zero in v0</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section anchor="frame-types">
+      <name>Frame Types</name>
+      <table anchor="frame-types-table">
+        <name>Frame Types</name>
+        <thead>
+          <tr>
+            <th align="left">Code</th>
+            <th align="left">Name</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>0x01</td><td>HELLO</td></tr>
+          <tr><td>0x02</td><td>AUTH</td></tr>
+          <tr><td>0x03</td><td>NEGOTIATE</td></tr>
+          <tr><td>0x04</td><td>CAPS</td></tr>
+          <tr><td>0x10</td><td>REQUEST</td></tr>
+          <tr><td>0x11</td><td>RESPONSE</td></tr>
+          <tr><td>0x12</td><td>COMMAND</td></tr>
+          <tr><td>0x13</td><td>EVENT</td></tr>
+          <tr><td>0x20</td><td>STREAM_OPEN</td></tr>
+          <tr><td>0x21</td><td>STREAM_DATA</td></tr>
+          <tr><td>0x22</td><td>STREAM_CLOSE</td></tr>
+          <tr><td>0x30</td><td>ACK</td></tr>
+          <tr><td>0x31</td><td>NACK</td></tr>
+          <tr><td>0x32</td><td>FLOW_CREDIT</td></tr>
+          <tr><td>0x33</td><td>HEARTBEAT</td></tr>
+          <tr><td>0x34</td><td>ERROR</td></tr>
+          <tr><td>0x35</td><td>AUDIT_RECEIPT</td></tr>
+          <tr><td>0x36</td><td>SCHEMA_HINT</td></tr>
+          <tr><td>0x37</td><td>ROUTE_ENVELOPE</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section anchor="extensions">
+      <name>Extension Block</name>
+      <t>
+        The extension block uses a compact TLV format.
+      </t>
+      <sourcecode><![CDATA[
++---------+---------+-----------------+
+| Type(u8)| Len(u8) | Value(len bytes)|
++---------+---------+-----------------+
+]]></sourcecode>
+      <t>
+        Unknown mandatory-understood extension types MUST cause frame
+        rejection. Unknown optional extension types MAY be ignored.
+      </t>
+    </section>
+
+    <section anchor="semantics">
+      <name>Message Semantics</name>
+      <t>
+        Vanta supports request/response, commands, events, and streams.
+      </t>
+      <ul>
+        <li><t>REQUEST and RESPONSE for query/response exchanges</t></li>
+        <li><t>COMMAND for state-changing operations</t></li>
+        <li><t>EVENT for asynchronous signaling and pub/sub</t></li>
+        <li><t>STREAM_OPEN, STREAM_DATA, and STREAM_CLOSE for streaming</t></li>
+      </ul>
+    </section>
+
+    <section anchor="projection-delta">
+      <name>Projection and Delta Support</name>
+      <t>
+        Vanta supports partial response projection, delta updates,
+        and capability-based visibility. The protocol carries opaque
+        application queries and associated metadata rather than a
+        standardized query language.
+      </t>
+    </section>
+
+    <section anchor="schema-capability">
+      <name>Schema and Capability Model</name>
+      <t>
+        Vanta supports centrally defined schemas with possible client
+        extensions through explicit negotiation. Unknown fields SHOULD
+        be ignored according to schema policy. Optional fields and
+        capability negotiation are supported from the beginning.
+      </t>
+    </section>
+  </middle>
+
+  <back/>
+</rfc>

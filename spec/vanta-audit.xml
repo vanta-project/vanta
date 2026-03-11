@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rfc version="3"
+     ipr="trust200902"
+     category="info"
+     submissionType="independent"
+     docName="draft-vanta-audit-00">
+
+  <front>
+    <title>Vanta Audit Chain Specification</title>
+
+    <author fullname="BENN" initials="B." surname="Author">
+      <organization>Independent</organization>
+    </author>
+
+    <date year="2026"/>
+
+    <abstract>
+      <t>
+        This document defines the Vanta audit receipt format,
+        receipt chaining model, event classes, and verification rules
+        for cryptographically verifiable execution tracing.
+      </t>
+    </abstract>
+  </front>
+
+  <middle>
+    <section anchor="overview">
+      <name>Overview</name>
+      <t>
+        Vanta includes a protocol-native audit layer for important
+        protocol and application events. Audit receipts are intended
+        to be compact, deterministic, signed, and tamper-evident.
+      </t>
+    </section>
+
+    <section anchor="events">
+      <name>Audit Event Classes</name>
+      <t>
+        Audit receipts may be emitted for mutation application,
+        duplicate handling, validation failures, retransmissions,
+        and session lifecycle events.
+      </t>
+    </section>
+
+    <section anchor="receipt-format">
+      <name>Receipt Format</name>
+      <t>
+        An audit receipt contains at least a receipt identifier,
+        a previous receipt hash, session and stream identifiers,
+        message and operation identifiers where applicable,
+        sender and receiver peer identifiers, an event type,
+        a disposition code, a payload hash, a timestamp,
+        and a receiver signature.
+      </t>
+    </section>
+
+    <section anchor="hashing">
+      <name>Payload Hashing</name>
+      <t>
+        Audit records MUST NOT include plaintext payload content.
+        Instead, they bind to payload bytes using a cryptographic hash.
+        For end-to-end encrypted payloads, the ciphertext SHOULD be
+        hashed for audit binding.
+      </t>
+    </section>
+
+    <section anchor="chain">
+      <name>Receipt Chain Construction</name>
+      <t>
+        Audit receipts form an append-only hash chain. Each receipt
+        commits to the previous receipt hash.
+      </t>
+      <sourcecode><![CDATA[
+ReceiptHash_n = SHA256(CanonicalReceiptFields || PreviousReceiptHash)
+]]></sourcecode>
+    </section>
+
+    <section anchor="signatures">
+      <name>Receipt Signatures</name>
+      <t>
+        Audit receipts are signed by the receiver using its long-term
+        Ed25519 identity key. This provides authenticity, attribution,
+        and tamper evidence.
+      </t>
+    </section>
+
+    <section anchor="verification">
+      <name>Verification</name>
+      <t>
+        A verifier checks the receipt signature, recomputes the receipt
+        hash, verifies continuity to the previous receipt hash, and
+        validates the payload hash and referenced identifiers where
+        available.
+      </t>
+    </section>
+
+    <section anchor="continuity">
+      <name>Cross-Session Continuity</name>
+      <t>
+        Implementations MAY support cross-session audit continuity by
+        referencing the terminal receipt hash of a previous session.
+      </t>
+    </section>
+
+    <section anchor="privacy">
+      <name>Privacy Properties</name>
+      <t>
+        The audit layer intentionally stores metadata and hashes rather
+        than payload contents or full application queries. This is
+        intended to balance verifiability with confidentiality.
+      </t>
+    </section>
+
+    <section anchor="failure">
+      <name>Audit Failure Handling</name>
+      <t>
+        If receipt generation or verification fails under a policy that
+        requires audit integrity, the implementation SHOULD emit an
+        explicit protocol error and MAY terminate the session.
+      </t>
+    </section>
+
+    <section anchor="security-considerations">
+      <name>Security Considerations</name>
+      <t>
+        Compromise of a peer's long-term signing key can invalidate
+        receipt attribution for that peer. Implementations SHOULD
+        protect long-term keys and receipt logs accordingly.
+      </t>
+    </section>
+  </middle>
+
+  <back>
+    <references>
+      <name>Normative References</name>
+
+      <reference anchor="RFC8032" target="https://www.rfc-editor.org/info/rfc8032">
+        <front>
+          <title>Edwards-Curve Digital Signature Algorithm (EdDSA)</title>
+          <author fullname="S. Josefsson" initials="S." surname="Josefsson"/>
+          <author fullname="I. Liusvaara" initials="I." surname="Liusvaara"/>
+          <date year="2017"/>
+        </front>
+        <seriesInfo name="RFC" value="8032"/>
+      </reference>
+    </references>
+  </back>
+</rfc>

@@ -1,0 +1,224 @@
+
+
+
+
+Network Working Group                                          B. Author
+Internet-Draft                                               Independent
+Intended status: Informational                             11 March 2026
+Expires: 12 September 2026
+
+
+           Vanta Reliability and Control-Plane Specification
+                       draft-vanta-reliability-00
+
+Abstract
+
+   This document defines the Vanta control plane, acknowledgement model,
+   flow control, retransmission signaling, reconnection semantics, and
+   effectively-once mutation behavior.
+
+Status of This Memo
+
+   This Internet-Draft is submitted in full conformance with the
+   provisions of BCP 78 and BCP 79.
+
+   Internet-Drafts are working documents of the Internet Engineering
+   Task Force (IETF).  Note that other groups may also distribute
+   working documents as Internet-Drafts.  The list of current Internet-
+   Drafts is at https://datatracker.ietf.org/drafts/current/.
+
+   Internet-Drafts are draft documents valid for a maximum of six months
+   and may be updated, replaced, or obsoleted by other documents at any
+   time.  It is inappropriate to use Internet-Drafts as reference
+   material or to cite them other than as "work in progress."
+
+   This Internet-Draft will expire on 12 September 2026.
+
+Copyright Notice
+
+   Copyright (c) 2026 IETF Trust and the persons identified as the
+   document authors.  All rights reserved.
+
+   This document is subject to BCP 78 and the IETF Trust's Legal
+   Provisions Relating to IETF Documents (https://trustee.ietf.org/
+   license-info) in effect on the date of publication of this document.
+   Please review these documents carefully, as they describe your rights
+   and restrictions with respect to this document.
+
+
+
+
+
+
+
+
+
+Author                  Expires 12 September 2026               [Page 1]
+
+Internet-Draft  Vanta Reliability and Control-Plane Spec      March 2026
+
+
+Table of Contents
+
+   1.  Control Plane and Data Plane  . . . . . . . . . . . . . . . .   2
+   2.  Acknowledgement Model . . . . . . . . . . . . . . . . . . . .   2
+   3.  ACK Frame . . . . . . . . . . . . . . . . . . . . . . . . . .   2
+   4.  NACK Frame  . . . . . . . . . . . . . . . . . . . . . . . . .   2
+   5.  Flow Control  . . . . . . . . . . . . . . . . . . . . . . . .   3
+   6.  Heartbeat . . . . . . . . . . . . . . . . . . . . . . . . . .   3
+   7.  Retransmission  . . . . . . . . . . . . . . . . . . . . . . .   3
+   8.  Effectively-Once Mutation Semantics . . . . . . . . . . . . .   3
+   9.  Mutation Dispositions . . . . . . . . . . . . . . . . . . . .   3
+   10. Reconnection and Failure Semantics  . . . . . . . . . . . . .   3
+   11. Ordering  . . . . . . . . . . . . . . . . . . . . . . . . . .   4
+   12. Error Handling  . . . . . . . . . . . . . . . . . . . . . . .   4
+   Author's Address  . . . . . . . . . . . . . . . . . . . . . . . .   4
+
+1.  Control Plane and Data Plane
+
+   Vanta distinguishes control-plane traffic from data-plane traffic.
+   Control-plane frames include acknowledgements, flow control, errors,
+   heartbeats, stream management, and audit receipts.
+
+   Control-plane traffic SHOULD be prioritized over application data
+   traffic.
+
+2.  Acknowledgement Model
+
+   Vanta distinguishes transport acknowledgement from semantic
+   acknowledgement.
+
+   *  Transport acknowledgement confirms receipt and parse success.
+
+   *  Semantic acknowledgement confirms application disposition.
+
+3.  ACK Frame
+
+   ACK frames confirm receipt of one or more frames on a target stream.
+   They include at least a target stream identifier, the largest
+   contiguous received sequence number, and optional selective
+   acknowledgement ranges.
+
+4.  NACK Frame
+
+   NACK frames indicate missing or rejected frame sequences.  A NACK
+   does not by itself require retransmission, but it provides an
+   explicit loss or rejection signal.
+
+
+
+
+
+Author                  Expires 12 September 2026               [Page 2]
+
+Internet-Draft  Vanta Reliability and Control-Plane Spec      March 2026
+
+
+5.  Flow Control
+
+   Flow control is receiver-driven.  Receivers grant byte credits and
+   optionally message credits.  Senders MUST stop sending data-plane
+   traffic when credits are exhausted.
+
+   Implementations SHOULD reserve capacity for control-plane traffic to
+   avoid deadlock.
+
+6.  Heartbeat
+
+   HEARTBEAT frames are used for liveness detection and optional round-
+   trip time measurement.
+
+7.  Retransmission
+
+   Retransmission is explicit.  Retransmitted frames MUST preserve
+   MessageID and any relevant OperationID.  Retransmitted frames SHOULD
+   set the RETRANSMIT flag.
+
+8.  Effectively-Once Mutation Semantics
+
+   Vanta targets effectively-once semantics for mutation requests.
+   Duplicate detection is based on sender identity and mutation
+   identifiers rather than transport guarantees alone.
+
+   Receivers SHOULD maintain an in-memory deduplication cache for the
+   active session lifetime.
+
+9.  Mutation Dispositions
+
+   *  APPLIED
+
+   *  DUPLICATE_APPLIED
+
+   *  DUPLICATE_REJECTED
+
+   *  VALIDATION_FAILED
+
+   *  CAPABILITY_DENIED
+
+10.  Reconnection and Failure Semantics
+
+   Reconnection uses policy-defined backoff and optional resumption
+   support.  Unresolved mutations MUST be treated as
+   UNKNOWN_AFTER_DISCONNECT until explicitly reconciled.
+
+
+
+
+
+Author                  Expires 12 September 2026               [Page 3]
+
+Internet-Draft  Vanta Reliability and Control-Plane Spec      March 2026
+
+
+11.  Ordering
+
+   Ordering may be negotiated or requested per stream.  The default
+   SHOULD favor throughput and low latency unless stronger ordering
+   semantics are explicitly requested.
+
+12.  Error Handling
+
+   ERROR frames provide explicit and structured protocol failures,
+   including authentication errors, schema violations, flow-control
+   failures, and routing or capability errors.
+
+Author's Address
+
+   BENN
+   Independent
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Author                  Expires 12 September 2026               [Page 4]

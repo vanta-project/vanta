@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rfc version="3"
+     ipr="trust200902"
+     category="info"
+     submissionType="independent"
+     docName="draft-vanta-reliability-00">
+
+  <front>
+    <title>Vanta Reliability and Control-Plane Specification</title>
+
+    <author fullname="BENN" initials="B." surname="Author">
+      <organization>Independent</organization>
+    </author>
+
+    <date year="2026"/>
+
+    <abstract>
+      <t>
+        This document defines the Vanta control plane, acknowledgement
+        model, flow control, retransmission signaling, reconnection
+        semantics, and effectively-once mutation behavior.
+      </t>
+    </abstract>
+  </front>
+
+  <middle>
+    <section anchor="planes">
+      <name>Control Plane and Data Plane</name>
+      <t>
+        Vanta distinguishes control-plane traffic from data-plane traffic.
+        Control-plane frames include acknowledgements, flow control,
+        errors, heartbeats, stream management, and audit receipts.
+      </t>
+      <t>
+        Control-plane traffic SHOULD be prioritized over application
+        data traffic.
+      </t>
+    </section>
+
+    <section anchor="ack-model">
+      <name>Acknowledgement Model</name>
+      <t>
+        Vanta distinguishes transport acknowledgement from semantic
+        acknowledgement.
+      </t>
+      <ul>
+        <li><t>Transport acknowledgement confirms receipt and parse success.</t></li>
+        <li><t>Semantic acknowledgement confirms application disposition.</t></li>
+      </ul>
+    </section>
+
+    <section anchor="ack-frame">
+      <name>ACK Frame</name>
+      <t>
+        ACK frames confirm receipt of one or more frames on a target
+        stream. They include at least a target stream identifier,
+        the largest contiguous received sequence number, and optional
+        selective acknowledgement ranges.
+      </t>
+    </section>
+
+    <section anchor="nack-frame">
+      <name>NACK Frame</name>
+      <t>
+        NACK frames indicate missing or rejected frame sequences.
+        A NACK does not by itself require retransmission, but it
+        provides an explicit loss or rejection signal.
+      </t>
+    </section>
+
+    <section anchor="flow-control">
+      <name>Flow Control</name>
+      <t>
+        Flow control is receiver-driven. Receivers grant byte credits
+        and optionally message credits. Senders MUST stop sending
+        data-plane traffic when credits are exhausted.
+      </t>
+      <t>
+        Implementations SHOULD reserve capacity for control-plane
+        traffic to avoid deadlock.
+      </t>
+    </section>
+
+    <section anchor="heartbeat">
+      <name>Heartbeat</name>
+      <t>
+        HEARTBEAT frames are used for liveness detection and optional
+        round-trip time measurement.
+      </t>
+    </section>
+
+    <section anchor="retransmission">
+      <name>Retransmission</name>
+      <t>
+        Retransmission is explicit. Retransmitted frames MUST preserve
+        MessageID and any relevant OperationID. Retransmitted frames
+        SHOULD set the RETRANSMIT flag.
+      </t>
+    </section>
+
+    <section anchor="effective-once">
+      <name>Effectively-Once Mutation Semantics</name>
+      <t>
+        Vanta targets effectively-once semantics for mutation requests.
+        Duplicate detection is based on sender identity and mutation
+        identifiers rather than transport guarantees alone.
+      </t>
+      <t>
+        Receivers SHOULD maintain an in-memory deduplication cache
+        for the active session lifetime.
+      </t>
+    </section>
+
+    <section anchor="dispositions">
+      <name>Mutation Dispositions</name>
+      <ul>
+        <li><t>APPLIED</t></li>
+        <li><t>DUPLICATE_APPLIED</t></li>
+        <li><t>DUPLICATE_REJECTED</t></li>
+        <li><t>VALIDATION_FAILED</t></li>
+        <li><t>CAPABILITY_DENIED</t></li>
+      </ul>
+    </section>
+
+    <section anchor="reconnect">
+      <name>Reconnection and Failure Semantics</name>
+      <t>
+        Reconnection uses policy-defined backoff and optional resumption
+        support. Unresolved mutations MUST be treated as
+        UNKNOWN_AFTER_DISCONNECT until explicitly reconciled.
+      </t>
+    </section>
+
+    <section anchor="ordering">
+      <name>Ordering</name>
+      <t>
+        Ordering may be negotiated or requested per stream.
+        The default SHOULD favor throughput and low latency unless
+        stronger ordering semantics are explicitly requested.
+      </t>
+    </section>
+
+    <section anchor="errors">
+      <name>Error Handling</name>
+      <t>
+        ERROR frames provide explicit and structured protocol failures,
+        including authentication errors, schema violations, flow-control
+        failures, and routing or capability errors.
+      </t>
+    </section>
+  </middle>
+
+  <back/>
+</rfc>
