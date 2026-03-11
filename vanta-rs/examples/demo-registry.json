@@ -1,0 +1,40 @@
+{
+  "manifest": {
+    "version": 1,
+    "name": "demo",
+    "extension_namespaces": [
+      "vanta.core",
+      "demo.app"
+    ],
+    "schemas": [
+      {
+        "family_id_hex": "0102030405060708",
+        "version_id": 1,
+        "name": "demo.command",
+        "fields": [
+          "op",
+          "body"
+        ],
+        "optional_fields": [
+          "trace_id"
+        ]
+      }
+    ],
+    "capabilities": [
+      {
+        "set_id_hex": "1112131415161718",
+        "name": "mutate",
+        "permissions": [
+          "command.apply",
+          "audit.emit"
+        ]
+      }
+    ],
+    "metadata": {
+      "owner": "demo-team",
+      "environment": "local"
+    }
+  },
+  "signer_peer_id_hex": null,
+  "signature_base64": null
+}

@@ -2,6 +2,14 @@
 
 Canonical Rust reference implementation for Vanta v0.
 
+## Quick Start
+
+```bash
+cd vanta-rs
+cargo test
+cargo run -p vanta-cli -- --help
+```
+
 ## Workspace
 
 - `vanta-wire`: wire types, frame codec, payload layouts, vectors
@@ -12,6 +20,17 @@ Canonical Rust reference implementation for Vanta v0.
 - `vanta-transport`: TCP, WebSocket, Unix socket, and relay transport adapters
 - `vanta-daemon`: runnable reference node and blind relay
 - `vanta-cli`: operator CLI
+
+## Docs
+
+- [`docs/cli.md`](/Users/benn/Documents/Projects/research/vanta-transfer-protocol/vanta-rs/docs/cli.md): CLI guide with command reference, examples, and output samples
+- [`docs/v0-wire-supplement.md`](/Users/benn/Documents/Projects/research/vanta-transfer-protocol/vanta-rs/docs/v0-wire-supplement.md): canonical wire decisions for the Rust implementation
+- [`docs/conformance-matrix.md`](/Users/benn/Documents/Projects/research/vanta-transfer-protocol/vanta-rs/docs/conformance-matrix.md): current spec-to-code mapping
+
+## Examples
+
+- [`examples/demo-registry.json`](/Users/benn/Documents/Projects/research/vanta-transfer-protocol/vanta-rs/examples/demo-registry.json): sample signed-registry input for `compile-registry`
+- [`examples/daemon.toml`](/Users/benn/Documents/Projects/research/vanta-transfer-protocol/vanta-rs/examples/daemon.toml): sample daemon configuration
 
 ## Canonical v0 choices
 
