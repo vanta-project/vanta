@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Vanta Specifications</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;800&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --void: #06060a;
+        --surface: #0e0e14;
+        --edge: #1a1a24;
+        --muted: #6b6b7a;
+        --text: #e8e8ef;
+        --accent: #00e5c2;
+        --accent-dim: rgba(0, 229, 194, 0.4);
+        --accent-glow: rgba(0, 229, 194, 0.15);
+        --warm: #ff9f68;
+        --warm-dim: rgba(255, 159, 104, 0.5);
+        --font-display: "Syne", sans-serif;
+        --font-mono: "JetBrains Mono", monospace;
+        --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      html {
+        font-size: 16px;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: var(--font-mono);
+        font-size: 0.875rem;
+        color: var(--text);
+        background: var(--void);
+        overflow-x: hidden;
+      }
+
+      /* Oscilloscope trace background */
+      .trace-bg {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: 0;
+        opacity: 0.12;
+      }
+
+      .trace-bg svg {
+        width: 100%;
+        height: 100%;
+      }
+
+      .trace-bg path {
+        fill: none;
+        stroke: var(--accent);
+        stroke-width: 0.5;
+        stroke-dasharray: 4 8;
+        animation: trace-flow 8s linear infinite;
+      }
+
+      .trace-bg path:nth-child(2) {
+        animation-delay: -2s;
+        stroke: var(--warm);
+        opacity: 0.6;
+      }
+      .trace-bg path:nth-child(3) {
+        animation-delay: -4s;
+        stroke-dasharray: 8 16;
+      }
+
+      @keyframes trace-flow {
+        to {
+          stroke-dashoffset: -48;
+        }
+      }
+
+      /* Grid overlay */
+      .grid-bg {
+        position: fixed;
+        inset: 0;
+        background-image:
+          linear-gradient(rgba(0, 229, 194, 0.03) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(0, 229, 194, 0.03) 1px, transparent 1px);
+        background-size: 48px 48px;
+        pointer-events: none;
+        z-index: 0;
+      }
+
+      /* Gradient orb */
+      .orb {
+        position: fixed;
+        width: 80vmax;
+        height: 80vmax;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        background: radial-gradient(
+          ellipse at center,
+          var(--accent-glow) 0%,
+          transparent 50%
+        );
+        pointer-events: none;
+        z-index: 0;
+        animation: orb-pulse 12s ease-in-out infinite;
+      }
+
+      @keyframes orb-pulse {
+        0%,
+        100% {
+          opacity: 0.4;
+          transform: translate(-50%, -50%) scale(1);
+        }
+        50% {
+          opacity: 0.8;
+          transform: translate(-50%, -50%) scale(1.1);
+        }
+      }
+
+      main {
+        position: relative;
+        z-index: 1;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: clamp(2rem, 5vw, 4rem);
+      }
+
+      .badge {
+        font-family: var(--font-mono);
+        font-size: 0.7rem;
+        font-weight: 500;
+        letter-spacing: 0.3em;
+        text-transform: uppercase;
+        color: var(--accent);
+        margin-bottom: 1.5rem;
+        opacity: 0;
+        animation: fade-up 0.8s var(--ease-out-expo) 0.2s forwards;
+      }
+
+      h1 {
+        font-family: var(--font-display);
+        font-weight: 800;
+        font-size: clamp(3rem, 12vw, 8rem);
+        line-height: 0.95;
+        letter-spacing: -0.04em;
+        margin: 0 0 0.5rem;
+        background: linear-gradient(
+          135deg,
+          var(--text) 0%,
+          var(--text) 45%,
+          var(--accent) 70%,
+          var(--warm) 100%
+        );
+        background-size: 200% auto;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        opacity: 0;
+        animation: fade-up 0.8s var(--ease-out-expo) 0.35s forwards;
+      }
+
+      .subtitle {
+        font-family: var(--font-mono);
+        font-size: 0.9rem;
+        font-weight: 400;
+        color: var(--muted);
+        margin: 0 0 4rem;
+        max-width: 32ch;
+        text-align: center;
+        line-height: 1.6;
+        opacity: 0;
+        animation: fade-up 0.8s var(--ease-out-expo) 0.5s forwards;
+      }
+
+      @keyframes fade-up {
+        from {
+          opacity: 0;
+          transform: translateY(24px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      nav {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        width: 100%;
+        max-width: 420px;
+      }
+
+      nav a {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 1rem 1.25rem;
+        font-family: var(--font-mono);
+        font-size: 0.9rem;
+        font-weight: 500;
+        color: var(--text);
+        text-decoration: none;
+        background: rgba(26, 26, 36, 0.6);
+        border: 1px solid var(--edge);
+        border-radius: 6px;
+        transition: all 0.3s var(--ease-out-expo);
+        opacity: 0;
+        animation: fade-up 0.6s var(--ease-out-expo) forwards;
+        position: relative;
+        overflow: hidden;
+      }
+
+      nav a:nth-child(1) {
+        animation-delay: 0.6s;
+      }
+      nav a:nth-child(2) {
+        animation-delay: 0.7s;
+      }
+      nav a:nth-child(3) {
+        animation-delay: 0.8s;
+      }
+      nav a:nth-child(4) {
+        animation-delay: 0.9s;
+      }
+      nav a:nth-child(5) {
+        animation-delay: 1s;
+      }
+
+      nav a::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 0;
+        height: 100%;
+        width: 3px;
+        background: var(--accent);
+        transform: scaleY(0);
+        transform-origin: bottom;
+        transition: transform 0.3s var(--ease-out-expo);
+      }
+
+      nav a:hover {
+        background: rgba(26, 26, 36, 0.9);
+        border-color: var(--accent-dim);
+        color: var(--accent);
+        transform: translateX(6px);
+      }
+
+      nav a:hover::before {
+        transform: scaleY(1);
+      }
+
+      nav a .num {
+        font-size: 0.75rem;
+        color: var(--muted);
+        min-width: 1.5rem;
+      }
+
+      nav a:hover .num {
+        color: var(--accent);
+      }
+
+      .footer {
+        margin-top: 5rem;
+        font-size: 0.75rem;
+        color: var(--muted);
+        opacity: 0;
+        animation: fade-up 0.8s var(--ease-out-expo) 1.2s forwards;
+      }
+
+      .footer a {
+        color: var(--accent-dim);
+        text-decoration: none;
+      }
+
+      .footer a:hover {
+        color: var(--accent);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="trace-bg" aria-hidden="true">
+      <svg viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice">
+        <path d="M0,200 Q300,100 600,200 T1200,200" />
+        <path d="M0,400 Q300,300 600,400 T1200,400" />
+        <path d="M0,600 Q300,500 600,600 T1200,600" />
+      </svg>
+    </div>
+    <div class="grid-bg" aria-hidden="true"></div>
+    <div class="orb" aria-hidden="true"></div>
+
+    <main>
+      <span class="badge">Protocol Specifications</span>
+      <h1>Vanta</h1>
+      <p class="subtitle">
+        Binary protocol for secure, verifiable data exchange
+      </p>
+
+      <nav>
+        <a href="./vanta-overview.html"><span class="num">01</span> Overview</a>
+        <a href="./vanta-core.html"><span class="num">02</span> Core</a>
+        <a href="./vanta-handshake.html"
+          ><span class="num">03</span> Handshake</a
+        >
+        <a href="./vanta-reliability.html"
+          ><span class="num">04</span> Reliability</a
+        >
+        <a href="./vanta-audit.html"><span class="num">05</span> Audit</a>
+      </nav>
+
+      <footer class="footer">
+        High-performance transfer protocol · <a href="../README.md">Project</a>
+      </footer>
+    </main>
+  </body>
+</html>
