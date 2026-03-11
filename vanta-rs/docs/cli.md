@@ -615,7 +615,7 @@ Run Node A once:
 cargo run -p vanta-cli -- run-node --config examples/node-a.toml
 ```
 
-Then run Node B twice with the same command identity:
+Then run Node B once and send the same command twice on its outbound session:
 
 ```bash
 cargo run -p vanta-cli -- run-node \
@@ -623,30 +623,25 @@ cargo run -p vanta-cli -- run-node \
   --connect-tcp 127.0.0.1:18401 \
   --action command \
   --payload apply-demo \
-  --operation-id-hex 22222222222222222222222222222222
-```
-
-Run the same command again:
-
-```bash
-cargo run -p vanta-cli -- run-node \
-  --config examples/node-b.toml \
-  --connect-tcp 127.0.0.1:18401 \
-  --action command \
-  --payload apply-demo \
-  --operation-id-hex 22222222222222222222222222222222
+  --operation-id-hex 22222222222222222222222222222222 \
+  --repeat 2
 ```
 
 Expected result:
 
-- first run: `audit disposition=Applied`
-- second run: `audit disposition=DuplicateApplied`
+- first command: `audit disposition=Applied`
+- second command in the same node process: `audit disposition=DuplicateApplied`
 
 Why it works:
 
 - Node B uses the fixed identity from `examples/node-b.toml`
 - the command uses the same `OperationID`
 - Node A persists dedup state in its SQLite backend
+
+Important:
+
+- `run-node` keeps running as a listener after it sends its outbound traffic
+- if you try to start a second process with the same node config while the first is still alive, the listener ports will conflict
 
 #### What `run-node` can do today
 
