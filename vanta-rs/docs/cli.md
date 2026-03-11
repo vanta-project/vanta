@@ -52,6 +52,7 @@ Commands:
   verify-audit
   generate-audit
   run-peer
+  run-node
   transcript-hash
   run-daemon
   help              Print this message or the help of the given subcommand(s)
@@ -525,6 +526,143 @@ Current limitations:
 - it uses the daemon config’s compiled registry and expects that config to match the running daemon
 - it is a sample peer for protocol bring-up, not a general interactive shell
 - duplicate-vs-applied is most clearly visible in the emitted `audit disposition=...` line; the current response path is still echo-oriented
+
+### `run-node`
+
+Purpose:
+
+- Starts a real listening node from a config file
+- Uses the same listener/runtime shell as `run-daemon`
+- Optionally initiates one outbound protocol session to another node at startup
+- Lets you run two terminals and actually test node-to-node communication
+
+Mental model:
+
+- `run-daemon` = listener only
+- `run-peer` = initiator only
+- `run-node` = listener first, initiator optionally
+
+This is the command to use when you want two processes that are both nodes.
+
+#### Simplest two-node setup
+
+Node A:
+
+```bash
+cd vanta-rs
+cargo run -p vanta-cli -- run-node --config examples/node-a.toml
+```
+
+Node B connects to Node A and sends a request:
+
+```bash
+cd vanta-rs
+cargo run -p vanta-cli -- run-node \
+  --config examples/node-b.toml \
+  --connect-tcp 127.0.0.1:18401 \
+  --action request \
+  --payload ping-from-node-b
+```
+
+What happens:
+
+- Node A starts listeners and waits for inbound sessions
+- Node B starts its own listeners
+- Node B then dials Node A over TCP
+- the live handshake completes
+- Node B sends the request payload
+- Node A responds with the current echo-style request handler
+
+#### Command / audit flow between two nodes
+
+Node A:
+
+```bash
+cargo run -p vanta-cli -- run-node --config examples/node-a.toml
+```
+
+Node B:
+
+```bash
+cargo run -p vanta-cli -- run-node \
+  --config examples/node-b.toml \
+  --connect-tcp 127.0.0.1:18401 \
+  --action command \
+  --payload apply-demo
+```
+
+Expected Node B output shape:
+
+```text
+node_peer_id=...
+listening_tcp=127.0.0.1:18411
+listening_websocket=127.0.0.1:18412
+listening_unix=/tmp/vanta-node-b.sock
+outbound_connect_target=127.0.0.1:18401
+heartbeat ping_id=1048576 timestamp_millis=...
+session_active schema_token=1098448329 capability_token=841132702
+sent_Command message_id=50505050505050505050505050505050
+audit disposition=Applied receipt_id=...
+response disposition=Applied payload=apply-demo
+outbound_session_id=...
+```
+
+#### Test duplicate command handling between nodes
+
+Run Node A once:
+
+```bash
+cargo run -p vanta-cli -- run-node --config examples/node-a.toml
+```
+
+Then run Node B twice with the same command identity:
+
+```bash
+cargo run -p vanta-cli -- run-node \
+  --config examples/node-b.toml \
+  --connect-tcp 127.0.0.1:18401 \
+  --action command \
+  --payload apply-demo \
+  --operation-id-hex 22222222222222222222222222222222
+```
+
+Run the same command again:
+
+```bash
+cargo run -p vanta-cli -- run-node \
+  --config examples/node-b.toml \
+  --connect-tcp 127.0.0.1:18401 \
+  --action command \
+  --payload apply-demo \
+  --operation-id-hex 22222222222222222222222222222222
+```
+
+Expected result:
+
+- first run: `audit disposition=Applied`
+- second run: `audit disposition=DuplicateApplied`
+
+Why it works:
+
+- Node B uses the fixed identity from `examples/node-b.toml`
+- the command uses the same `OperationID`
+- Node A persists dedup state in its SQLite backend
+
+#### What `run-node` can do today
+
+- listen on TCP, WebSocket, and Unix socket according to its config
+- initiate one outbound TCP or Unix socket session at startup
+- complete the handshake with another live node
+- send one or more `REQUEST` or `COMMAND` messages on that outbound session
+- keep running as a listener after the outbound session finishes
+
+#### What `run-node` cannot do yet
+
+- initiate a WebSocket client connection
+- maintain multiple outbound peers or a peer table
+- relay traffic between other nodes
+- provide an interactive shell for sending arbitrary follow-up messages after startup
+- act as a full application node with custom handlers beyond the current echo/request and audit/command behavior
 
 ## Typical workflows
 

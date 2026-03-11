@@ -31,6 +31,8 @@ cargo run -p vanta-cli -- --help
 
 - [`examples/demo-registry.json`](/Users/benn/Documents/Projects/research/vanta-transfer-protocol/vanta-rs/examples/demo-registry.json): sample signed-registry input for `compile-registry`
 - [`examples/daemon.toml`](/Users/benn/Documents/Projects/research/vanta-transfer-protocol/vanta-rs/examples/daemon.toml): sample daemon configuration
+- [`examples/node-a.toml`](/Users/benn/Documents/Projects/research/vanta-transfer-protocol/vanta-rs/examples/node-a.toml): sample node A configuration for two-node testing
+- [`examples/node-b.toml`](/Users/benn/Documents/Projects/research/vanta-transfer-protocol/vanta-rs/examples/node-b.toml): sample node B configuration for two-node testing
 
 ## Canonical v0 choices
 

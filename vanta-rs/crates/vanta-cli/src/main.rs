@@ -3,7 +3,9 @@ use clap::{Parser, Subcommand, ValueEnum};
 use sha2::{Digest, Sha256};
 use std::fs;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::net::{TcpStream, UnixStream};
+use tokio::time::sleep;
 use vanta_crypto::{
     IdentityKeypair, receipt_hash, sign_payload, transcript_hash_for_messages, verify_signature,
 };
@@ -71,6 +73,24 @@ enum Commands {
         operation_id_hex: Option<String>,
         #[arg(long, default_value_t = 1)]
         repeat: u32,
+    },
+    RunNode {
+        #[arg(long)]
+        config: String,
+        #[arg(long)]
+        connect_tcp: Option<String>,
+        #[arg(long)]
+        connect_unix: Option<String>,
+        #[arg(long, value_enum, default_value = "request")]
+        action: PeerAction,
+        #[arg(long, default_value = "sample-payload")]
+        payload: String,
+        #[arg(long)]
+        operation_id_hex: Option<String>,
+        #[arg(long, default_value_t = 1)]
+        repeat: u32,
+        #[arg(long, default_value_t = 250)]
+        startup_delay_ms: u64,
     },
     TranscriptHash {
         messages: Vec<String>,
@@ -173,6 +193,28 @@ async fn main() -> Result<()> {
                 identity_seed_hex.as_deref(),
                 operation_id_hex.as_deref(),
                 repeat,
+            )
+            .await?
+        }
+        Commands::RunNode {
+            config,
+            connect_tcp,
+            connect_unix,
+            action,
+            payload,
+            operation_id_hex,
+            repeat,
+            startup_delay_ms,
+        } => {
+            run_node(
+                &config,
+                connect_tcp.as_deref(),
+                connect_unix.as_deref(),
+                action,
+                &payload,
+                operation_id_hex.as_deref(),
+                repeat,
+                startup_delay_ms,
             )
             .await?
         }
@@ -613,4 +655,87 @@ fn parse_id16(value: &str) -> Result<[u8; 16]> {
     bytes
         .try_into()
         .map_err(|_| anyhow!("expected 16-byte hex value"))
+}
+
+async fn run_node(
+    config_path: &str,
+    connect_tcp: Option<&str>,
+    connect_unix: Option<&str>,
+    action: PeerAction,
+    payload: &str,
+    operation_id_hex: Option<&str>,
+    repeat: u32,
+    startup_delay_ms: u64,
+) -> Result<()> {
+    if connect_tcp.is_some() && connect_unix.is_some() {
+        bail!("use either --connect-tcp or --connect-unix, not both");
+    }
+
+    let config = DaemonConfig::from_toml_file(config_path)?;
+    let node_identity = config.identity();
+    println!("node_peer_id={}", node_identity.peer_id());
+    if let Some(addr) = &config.listeners.tcp_addr {
+        println!("listening_tcp={addr}");
+    }
+    if let Some(addr) = &config.listeners.websocket_addr {
+        println!("listening_websocket={addr}");
+    }
+    if let Some(path) = &config.listeners.unix_socket_path {
+        println!("listening_unix={path}");
+    }
+
+    let daemon = Daemon::open(config.clone())?;
+    let daemon_task = tokio::spawn(async move { daemon.run().await });
+
+    let connect_target = connect_tcp
+        .map(|addr| (PeerTransportKind::Tcp, addr.to_owned()))
+        .or_else(|| connect_unix.map(|path| (PeerTransportKind::Unix, path.to_owned())));
+
+    if let Some((transport_kind, target)) = connect_target {
+        sleep(Duration::from_millis(startup_delay_ms)).await;
+        println!("outbound_connect_target={target}");
+        let storage = Arc::new(MemoryStorage::default());
+        let mut session = Session::new(SessionConfig {
+            role: WireRole::Initiator,
+            identity: node_identity,
+            registry: config.registry.clone(),
+            storage,
+            trust_resolver: Arc::new(AllowAllTrustResolver),
+            clock: Arc::new(SystemClock),
+            random: Arc::new(OsRandom),
+            max_frame_size: 1024 * 1024,
+        });
+        let negotiated = match transport_kind {
+            PeerTransportKind::Tcp => {
+                let stream = TcpStream::connect(&target).await?;
+                let mut transport = FramedIoTransport::new(stream, "tcp-node-client");
+                run_peer_session(
+                    &mut session,
+                    &mut transport,
+                    action,
+                    payload,
+                    operation_id_hex,
+                    repeat,
+                )
+                .await?
+            }
+            PeerTransportKind::Unix => {
+                let stream = UnixStream::connect(&target).await?;
+                let mut transport = FramedIoTransport::new(stream, "unix-node-client");
+                run_peer_session(
+                    &mut session,
+                    &mut transport,
+                    action,
+                    payload,
+                    operation_id_hex,
+                    repeat,
+                )
+                .await?
+            }
+        };
+        println!("outbound_session_id={}", negotiated.session_id);
+    }
+
+    daemon_task.await??;
+    Ok(())
 }

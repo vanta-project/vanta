@@ -1,0 +1,26 @@
+mode = "Endpoint"
+sqlite_path = "vanta-node-b.db"
+identity_seed_hex = "2222222222222222222222222222222222222222222222222222222222222222"
+
+[listeners]
+tcp_addr = "127.0.0.1:18411"
+websocket_addr = "127.0.0.1:18412"
+unix_socket_path = "/tmp/vanta-node-b.sock"
+
+[registry]
+name = "demo"
+version = 1
+schema_token = 1098448329
+capability_token = 841132702
+extension_namespaces = ["vanta.core", "demo.app"]
+
+[[registry.schemas]]
+family_id = [1, 2, 3, 4, 5, 6, 7, 8]
+version_id = 1
+name = "demo.command"
+descriptor_hash_hex = "1e29e4dc9a694a80724cbd69c47a5f8dbcd4e6f58525d9886331b1217874d89c"
+
+[[registry.capabilities]]
+capability_id = [17, 18, 19, 20, 21, 22, 23, 24]
+name = "mutate"
+descriptor_hash_hex = "2e0f26c8fc2ab487f66a5520ccc5463ca46cf27a0fcfae1f6e794a72c0130ea5"
