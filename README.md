@@ -20,7 +20,7 @@ Vanta is a high-performance binary protocol for secure, verifiable data exchange
 
 ### Generation
 
-When chaing the specifications, re-generate the HTML version of the specifications using the following commands:
+When changing the specifications, re-generate the HTML version of the specifications using the following commands:
 
 ```bash
 # Make a virtual environment
