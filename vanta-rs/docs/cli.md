@@ -24,6 +24,7 @@ cargo build -p vanta-cli
 - Compile a JSON registry manifest into canonical schema/capability tokens
 - Decode and pretty-print a binary or hex-encoded Vanta frame
 - Generate canonical sample frames for tests, docs, or local experiments
+- Generate a real signed sample audit receipt payload for verification workflows
 - Verify an encoded audit receipt and print the resulting receipt hash
 - Compute the canonical transcript hash used by the handshake code
 - Start the reference daemon from a TOML config file
@@ -48,6 +49,7 @@ Commands:
   compile-registry
   inspect-frame
   verify-audit
+  generate-audit
   transcript-hash
   run-daemon
   help              Print this message or the help of the given subcommand(s)
@@ -210,6 +212,12 @@ Purpose:
 - Verifies the receipt signature using the receiver `PeerID`
 - Prints the resulting hash if verification succeeds
 
+Where `receipt.bin` comes from:
+
+- In a live Vanta exchange, the reference daemon emits `AUDIT_RECEIPT` frames when it handles `COMMAND` frames.
+- `verify-audit` expects the raw encoded receipt payload, not the full outer Vanta frame.
+- The CLI does not yet have a dedicated `extract-audit-from-frame` helper, so the practical local workflow today is to generate a receipt payload with `generate-audit` or capture the payload bytes from an `AUDIT_RECEIPT` frame in your own test harness or transport trace.
+
 Sample command:
 
 ```bash
@@ -226,6 +234,47 @@ Operational notes:
 
 - `--previous-hash-hex` is optional. If omitted, the tool uses the receipt’s embedded `prev_receipt_hash`.
 - Signature verification failure exits the command with an error.
+- If you need a valid local input file, generate one first with `generate-audit --output receipt.bin`.
+
+### `generate-audit`
+
+Purpose:
+
+- Generates a real signed `AUDIT_RECEIPT` payload using the same canonical binary encoding and signature verification path as the reference implementation
+- Writes the encoded receipt to a file as raw binary or hex
+- Prints the receiver `PeerID` and computed receipt hash
+
+Sample command:
+
+```bash
+cargo run -p vanta-cli -- generate-audit --output receipt.bin
+```
+
+Hex output variant:
+
+```bash
+cargo run -p vanta-cli -- generate-audit --output receipt.hex --hex
+```
+
+Example output:
+
+```text
+wrote_receipt=receipt.bin
+receiver_peer_id=d759793bbc13a2819a827c76adb6fba8a49aee007f49f2d0992d99b825ad2c48
+receipt_hash=221cbb6e6fb0404e163a2f3c91d90db295ba7dc83e4c0ebed6b9fa7c8f536125
+```
+
+What it produces:
+
+- A standalone encoded receipt payload suitable for `verify-audit`
+- Not a full outer `AUDIT_RECEIPT` frame
+
+Typical local workflow:
+
+```bash
+cargo run -p vanta-cli -- generate-audit --output receipt.bin
+cargo run -p vanta-cli -- verify-audit receipt.bin
+```
 
 ### `transcript-hash`
 
@@ -325,8 +374,23 @@ cargo run -p vanta-cli -- inspect-frame capture.hex --hex
 cargo run -p vanta-cli -- verify-audit receipt.bin
 ```
 
+### Generate a valid local receipt first
+
+```bash
+cargo run -p vanta-cli -- generate-audit --output receipt.bin
+cargo run -p vanta-cli -- verify-audit receipt.bin
+```
+
+### Verify a receipt that came from a live daemon run
+
+You need the raw receipt payload bytes from an `AUDIT_RECEIPT` frame. The daemon already emits those frames for handled commands, but the CLI does not yet extract the payload automatically from a captured frame. Today the practical options are:
+
+- capture the full `AUDIT_RECEIPT` frame in your own integration test and write just the payload bytes to `receipt.bin`
+- generate a local payload with `generate-audit` when you only need a valid verification example
+
 ## Current limitations
 
 - `compile-registry` currently expects JSON input, not TOML.
 - `run-daemon` expects a compiled registry embedded in the TOML config rather than a manifest path.
+- `verify-audit` still expects a raw receipt payload rather than a full captured `AUDIT_RECEIPT` frame.
 - `verify-audit` verifies a single receipt at a time rather than an entire chain directory.

@@ -1220,6 +1220,7 @@ dependencies = [
  "clap",
  "hex",
  "serde_json",
+ "sha2",
  "tokio",
  "vanta-crypto",
  "vanta-daemon",

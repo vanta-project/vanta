@@ -685,7 +685,7 @@ pub struct AuditReceipt {
 
 impl BinaryCodec for AuditReceipt {
     fn encode(&self) -> Result<Bytes, WireError> {
-        let mut buf = BytesMut::with_capacity(302);
+        let mut buf = BytesMut::with_capacity(288);
         buf.extend_from_slice(self.receipt_id.as_bytes());
         buf.extend_from_slice(&self.prev_receipt_hash);
         buf.extend_from_slice(self.session_id.as_bytes());
@@ -706,7 +706,7 @@ impl BinaryCodec for AuditReceipt {
     }
 
     fn decode(bytes: &[u8]) -> Result<Self, WireError> {
-        if bytes.len() != 302 {
+        if bytes.len() != 288 {
             return Err(WireError::InvalidPayloadLength(bytes.len() as u32));
         }
         let mut buf = bytes;
